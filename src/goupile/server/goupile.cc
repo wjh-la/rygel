@@ -74,9 +74,10 @@ static Span<const uint8_t> PatchGoupileVariables(const AssetInfo &asset, Allocat
         } else if (TestStr(key, "CACHE_KEY")) {
             writer->Write(etag);
             return true;
-        } else if (TestStr(key, "LINK_MANIFEST")) {
+        } else if (TestStr(key, "PWA_TAGS")) {
             if (instance->config.use_offline) {
-                Print(writer, "<link rel=\"manifest\" href=\"%1manifest.json\"/>", instance->config.http.base_url);
+                Print(writer, "        <link rel=\"manifest\" href=\"%1manifest.json\"/>\n", instance->config.http.base_url);
+                Print(writer, "        <meta name=\"theme-color\" content=\"#24579d\"/>");
             }
             return true;
         } else {
