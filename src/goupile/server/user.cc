@@ -153,8 +153,6 @@ void HandleUserLogin(const http_RequestInfo &request, http_IO *io)
 
             LogError("Invalid username or password");
             io->AttachError(403);
-        } else {
-            LogError("SQLite Error: %1", sqlite3_errmsg(instance->db));
         }
     });
 }
