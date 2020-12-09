@@ -212,7 +212,7 @@ void HandleRecordSync(const http_RequestInfo &request, http_IO *io)
         ScriptPort *port = LockScriptPort();
         RG_DEFER { port->Unlock(); };
 
-        port->ChangeProfile(*session);
+        port->ChangeProfile(session->username, session->zone);
 
         // Parse request body (JSON)
         HeapArray<ScriptRecord> handles;
@@ -384,6 +384,119 @@ void HandleRecordSync(const http_RequestInfo &request, http_IO *io)
         } else {
             io->AttachText(200, "Done!");
         }
+    });
+}
+
+// XXX: Update columns after recomputation
+void HandleRecordRecompute(const http_RequestInfo &request, http_IO *io)
+{
+    RetainPtr<const Session> session = GetCheckedSession(request, io);
+
+    if (!session || !session->HasPermission(UserPermission::Edit)) {
+        LogError("User is not allowed to recompute records");
+        io->AttachError(403);
+        return;
+    }
+
+    io->RunAsync([=]() {
+        // Read POST values
+        HashMap<const char *, const char *> values;
+        if (!io->ReadPostValues(&io->allocator, &values)) {
+            io->AttachError(422);
+            return;
+        }
+
+        // XXX: Check that page actually exists
+        const char *table = values.FindValue("table", nullptr);
+        const char *page = values.FindValue("page", nullptr);
+        if (!table || !page) {
+            LogError("Missing parameters");
+            io->AttachError(422);
+            return;
+        }
+
+        // Find appropriate port
+        ScriptPort *port = LockScriptPort();
+        RG_DEFER { port->Unlock(); };
+
+        int64_t anchor;
+        {
+            sq_Statement stmt;
+            if (!instance->db.Prepare("SELECT seq FROM sqlite_sequence WHERE name = 'rec_fragments';", &stmt))
+                return;
+
+            if (stmt.Next()) {
+                anchor = sqlite3_column_int64(stmt, 0);
+            } else if (stmt.IsValid()) {
+                anchor = -1;
+            } else {
+                return;
+            }
+        }
+
+        sq_Statement stmt;
+        {
+            LocalArray<char, 1024> sql;
+            int bind_idx = 1;
+
+            sql.len += Fmt(sql.TakeAvailable(), R"(SELECT r.id, r.json, r.version, f.username,
+                                                          f.complete, r.zone FROM rec_entries r
+                                                   INNER JOIN rec_fragments f ON (f.store = r.store AND f.id = r.id AND
+                                                                                  f.version = r.version)
+                                                   WHERE r.store = ? AND f.anchor <= ? AND f.page IS NOT NULL)").len;
+            if (session->zone) {
+                sql.len += Fmt(sql.TakeAvailable(), " AND (r.zone IS NULL OR r.zone == ?)").len;
+            }
+
+            if (!instance->db.Prepare(sql.data, &stmt))
+                return;
+
+            sqlite3_bind_text(stmt, bind_idx++, table, -1, SQLITE_STATIC);
+            sqlite3_bind_int64(stmt, bind_idx++, anchor);
+            if (session->zone) {
+               sqlite3_bind_text(stmt, bind_idx++, session->zone, -1, SQLITE_STATIC);
+            }
+        }
+
+        while (stmt.Next()) {
+            sq_TransactionResult ret = instance->db.Transaction([&]() {
+                Size i = 0;
+                do {
+                    const char *id = (const char *)sqlite3_column_text(stmt, 0);
+                    Span<const char> json = MakeSpan((const char *)sqlite3_column_blob(stmt, 1),
+                                                     sqlite3_column_bytes(stmt, 1));
+                    int version = sqlite3_column_int(stmt, 2);
+                    const char *username = (const char *)sqlite3_column_text(stmt, 3);
+                    bool complete = sqlite3_column_int(stmt, 4);
+                    const char *zone = (const char *)sqlite3_column_text(stmt, 5);
+
+                    port->ChangeProfile(username, zone);
+
+                    ScriptFragment fragment;
+                    if (!port->Recompute(table, json, page, &fragment, &json))
+                        return sq_TransactionResult::Rollback;
+
+                    if (!instance->db.Run(R"(INSERT INTO rec_fragments (store, id, version, page,
+                                                                        username, mtime, complete, json)
+                                             VALUES (?, ?, ?, ?, ?, ?, ?, ?);)",
+                                          table, id, version + 1, page, username, fragment.mtime,
+                                          complete, fragment.json))
+                        return sq_TransactionResult::Error;
+                    if (!instance->db.Run(R"(UPDATE rec_entries SET version = ?, json = ?
+                                             WHERE store = ? AND id = ?;)",
+                                          version + 1, json, table, id))
+                        return sq_TransactionResult::Error;
+                } while (++i < 20 && stmt.Next());
+
+                return sq_TransactionResult::Commit;
+            });
+            if (ret != sq_TransactionResult::Commit)
+                return;
+        }
+        if (!stmt.IsValid())
+            return;
+
+        io->AttachText(200, "Done!");
     });
 }
 

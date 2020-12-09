@@ -14,5 +14,6 @@ void InitRecords();
 void HandleRecordLoad(const http_RequestInfo &request, http_IO *io);
 void HandleRecordColumns(const http_RequestInfo &request, http_IO *io);
 void HandleRecordSync(const http_RequestInfo &request, http_IO *io);
+void HandleRecordRecompute(const http_RequestInfo &request, http_IO *io);
 
 }
