@@ -443,7 +443,8 @@ void HandleRecordRecompute(const http_RequestInfo &request, http_IO *io)
                                                           f.complete, r.zone FROM rec_entries r
                                                    INNER JOIN rec_fragments f ON (f.store = r.store AND f.id = r.id AND
                                                                                   f.version = r.version)
-                                                   WHERE r.store = ? AND f.anchor <= ? AND f.page IS NOT NULL)").len;
+                                                   WHERE r.store = ? AND f.anchor <= ? AND f.page IS NOT NULL AND
+                                                         r.id IN (SELECT id FROM rec_fragments WHERE store = ? AND page = ?))").len;
             if (session->zone) {
                 sql.len += Fmt(sql.TakeAvailable(), " AND (r.zone IS NULL OR r.zone == ?)").len;
             }
@@ -453,6 +454,8 @@ void HandleRecordRecompute(const http_RequestInfo &request, http_IO *io)
 
             sqlite3_bind_text(stmt, bind_idx++, table, -1, SQLITE_STATIC);
             sqlite3_bind_int64(stmt, bind_idx++, anchor);
+            sqlite3_bind_text(stmt, bind_idx++, table, -1, SQLITE_STATIC);
+            sqlite3_bind_text(stmt, bind_idx++, page, -1, SQLITE_STATIC);
             if (session->zone) {
                sqlite3_bind_text(stmt, bind_idx++, session->zone, -1, SQLITE_STATIC);
             }
