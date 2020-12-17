@@ -312,6 +312,16 @@ function VirtualRecords(db, zone) {
                     }))
                 };
 
+                // XXX: Temporary work around for bug with objects in fragments
+                for (let frag of record.fragments) {
+                    for (let key in frag.values) {
+                        let value = frag.values[key];
+
+                        if (typeof value === 'object')
+                            delete frag.values[key];
+                    }
+                }
+
                 return record;
             });
             records = Array.from(records);
