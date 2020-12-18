@@ -11,7 +11,7 @@ namespace RG {
 // If you change SchemaVersion, don't forget to update the migration switch!
 const int SchemaVersion = 17;
 
-bool InstanceData::Open(const char *directory)
+bool InstanceData::Open(const char *directory, bool fatal_config)
 {
     RG_DEFER_N(err_guard) { Close(); };
     Close();
@@ -47,13 +47,13 @@ bool InstanceData::Open(const char *directory)
 
     // Load configuration
     if (schema_version >= 15) {
-        if (!LoadDatabaseConfig())
+        if (!LoadDatabaseConfig() && fatal_config)
             return false;
     } else if (schema_version) {
         const char *ini_filename = Fmt(&str_alloc, "%1%/goupile.ini", directory).ptr;
 
         StreamReader st(ini_filename);
-        if (!LoadIniConfig(&st))
+        if (!LoadIniConfig(&st) && fatal_config)
             return false;
     }
 

@@ -47,7 +47,7 @@ public:
 
     BlockAllocator str_alloc;
 
-    bool Open(const char *directory);
+    bool Open(const char *directory, bool fatal_config = true);
     bool Validate();
     bool Migrate();
 

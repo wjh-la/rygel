@@ -359,6 +359,130 @@ Options:
     return !instance.Migrate();
 }
 
+static int RunShowConfig(Span<const char *> arguments)
+{
+    // Options
+    const char *instance_directory = nullptr;
+
+    const auto print_usage = [](FILE *fp) {
+        PrintLn(fp, R"(Usage: %!..+%1 show_config [options]%!0
+
+Options:
+    %!..+-I, --instance_dir <dir>%!0     Set instance directory)", FelixTarget);
+    };
+
+    // Parse arguments
+    {
+        OptionParser opt(arguments);
+
+        while (opt.Next()) {
+            if (opt.Test("--help")) {
+                print_usage(stdout);
+                return 0;
+            } else if (opt.Test("-I", "--instance_dir", OptionType::OptionalValue)) {
+                instance_directory = opt.current_value;
+            } else {
+                LogError("Cannot handle option '%1'", opt.current_option);
+                return 1;
+            }
+        }
+    }
+
+    // Open database
+    InstanceData instance;
+    if (!instance.Open(instance_directory, false))
+        return 1;
+    instance.Validate();
+
+    // List settings
+    {
+        sq_Statement stmt;
+        if (!instance.db.Prepare("SELECT key, value FROM fs_settings ORDER BY key;", &stmt))
+            return 1;
+
+        while (stmt.Next()) {
+            const char *key = (const char *)sqlite3_column_text(stmt, 0);
+            const char *value = (const char *)sqlite3_column_text(stmt, 1);
+
+            PrintLn("%1 = %2", key, value);
+        }
+        if (!stmt.IsValid())
+            return 1;
+    }
+
+    return 0;
+}
+
+static int RunEditConfig(Span<const char *> arguments)
+{
+    // Options
+    const char *instance_directory = nullptr;
+    const char *key = nullptr;
+    const char *value = nullptr;
+    bool nullify = false;
+
+    const auto print_usage = [](FILE *fp) {
+        PrintLn(fp, R"(Usage: %!..+%1 edit_config [options] <key> <value>%!0
+       %!..+%1 edit_config [options] <key> --null%!0
+
+Options:
+    %!..+-I, --instance_dir <dir>%!0     Set instance directory
+
+        %!..+--null%!0                   Change setting to NULL value)", FelixTarget);
+    };
+
+    // Parse arguments
+    {
+        OptionParser opt(arguments);
+
+        while (opt.Next()) {
+            if (opt.Test("--help")) {
+                print_usage(stdout);
+                return 0;
+            } else if (opt.Test("-I", "--instance_dir", OptionType::Value)) {
+                instance_directory = opt.current_value;
+            } else if (opt.Test("--null")) {
+                nullify = true;
+            } else {
+                LogError("Cannot handle option '%1'", opt.current_option);
+                return 1;
+            }
+        }
+
+        key = opt.ConsumeNonOption();
+        value = opt.ConsumeNonOption();
+        if (!key) {
+            LogError("No key provided");
+            return 1;
+        }
+        if (value) {
+            if (nullify) {
+                LogError("You cannot use a value and --null at the same time");
+                return 1;
+            }
+        } else if (!nullify) {
+            LogError("No value provided");
+            return 1;
+        }
+    }
+
+    // Open database
+    InstanceData instance;
+    if (!instance.Open(instance_directory, false))
+        return 1;
+    instance.Validate();
+
+    if (!instance.db.Run("UPDATE fs_settings SET value = ?2 WHERE key = ?1;", key, !nullify ? value : nullptr))
+        return 1;
+    if (!sqlite3_changes(instance.db)) {
+        LogError("Setting '%1' does not exist", key);
+        return 1;
+    }
+
+    PrintLn("%1 = %2", key, value);
+    return 0;
+}
+
 static bool ParsePermissionList(Span<const char> remain, uint32_t *out_permissions)
 {
     uint32_t permissions = 0;
@@ -715,6 +839,10 @@ General commands:
     %!..+init%!0                         Create new instance
     %!..+migrate%!0                      Migrate existing instance
 
+Configuration commands:
+    %!..+show_config%!0                  Show instance configuration
+    %!..+edit_config%!0                  Change configuration setting
+
 User commands:
     %!..+add_user%!0                     Add new user
     %!..+edit_user%!0                    Edit existing user
@@ -752,6 +880,10 @@ User commands:
         return RunInit(arguments);
     } else if (TestStr(cmd, "migrate")) {
         return RunMigrate(arguments);
+    } else if (TestStr(cmd, "show_config")) {
+        return RunShowConfig(arguments);
+    } else if (TestStr(cmd, "edit_config")) {
+        return RunEditConfig(arguments);
     } else if (TestStr(cmd, "add_user")) {
         return RunAddUser(arguments);
     } else if (TestStr(cmd, "edit_user")) {
