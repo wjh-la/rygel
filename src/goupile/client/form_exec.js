@@ -413,9 +413,19 @@ let form_exec = new function() {
             let msg = 'Cette action entraînera la perte des modifications en cours, êtes-vous sûr(e) ?';
             return dialog.confirm(e, msg, 'Fermer l\'enregistrement', () => {
                 goupile.go(makeURL(route_page.key, null));
+
+                setTimeout(() => {
+                    window.scrollTo(0, 0);
+                    log.info('Nouvel enregistrement');
+                }, 0);
             });
         } else {
             goupile.go(makeURL(route_page.key, null));
+
+            setTimeout(() => {
+                window.scrollTo(0, 0);
+                log.info('Nouvel enregistrement');
+            }, 0);
         }
     }
 
