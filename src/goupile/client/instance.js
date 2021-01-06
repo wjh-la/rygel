@@ -343,7 +343,7 @@ function InstanceController() {
                     values[key] = null;
             }
 
-            let key = `${profile.username}:${form_meta.ulid}`;
+            let key = `${profile.username}:processus@${form_meta.ulid}`;
             let fragment = {
                 user: profile.username,
                 mtime: new Date,
@@ -361,6 +361,7 @@ function InstanceController() {
                         record.hid = form_meta.hid;
                 } else {
                     record = {
+                        store: 'processus',
                         ulid: form_meta.ulid,
                         hid: form_meta.hid,
                         fragments: []
@@ -394,7 +395,7 @@ function InstanceController() {
             let progress = log.progress('Suppression en cours');
 
             try {
-                let key = `${profile.username}:${ulid}`;
+                let key = `${profile.username}:processus@${ulid}`;
                 let fragment = {
                     user: profile.username,
                     mtime: new Date,
@@ -898,7 +899,7 @@ function InstanceController() {
                 form_meta = null;
             } else if (form_meta == null || form_meta.ulid !== route.ulid ||
                                             form_meta.version !== route.version) {
-                let key = `${profile.username}:${route.ulid}`;
+                let key = `${profile.username}:processus@${route.ulid}`;
                 let enc = await db.load('rec_records', key);
 
                 if (enc != null) {
