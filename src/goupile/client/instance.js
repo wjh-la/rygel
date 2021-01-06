@@ -326,7 +326,7 @@ function InstanceController() {
             page_meta = null;
         } else if (page_meta == null || page_meta.ulid !== page_ulid ||
                                         page_meta.version !== page_version) {
-            let key = `${profile.username}:${page_ulid}`;
+            let key = `${profile.username}:processus@${page_ulid}`;
             let enc = await db.load('rec_records', key);
 
             if (enc != null) {
@@ -409,7 +409,7 @@ function InstanceController() {
                     values[key] = null;
             }
 
-            let key = `${profile.username}:${page_meta.ulid}`;
+            let key = `${profile.username}:processus@${page_meta.ulid}`;
             let fragment = {
                 user: profile.username,
                 mtime: new Date,
@@ -427,6 +427,7 @@ function InstanceController() {
                         record.hid = page_meta.hid;
                 } else {
                     record = {
+                        store: 'processus',
                         ulid: page_meta.ulid,
                         hid: page_meta.hid,
                         fragments: []
@@ -460,7 +461,7 @@ function InstanceController() {
             let progress = log.progress('Suppression en cours');
 
             try {
-                let key = `${profile.username}:${ulid}`;
+                let key = `${profile.username}:processus@${ulid}`;
                 let fragment = {
                     user: profile.username,
                     mtime: new Date,
