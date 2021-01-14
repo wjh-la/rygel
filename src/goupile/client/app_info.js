@@ -5,6 +5,7 @@
 function ApplicationInfo() {
     let self = this;
 
+    this.stores = [];
     this.pages = [];
     this.pages_map = {};
 
@@ -54,6 +55,7 @@ function ApplicationBuilder(app) {
                 menu_ref = [];
                 store_ref = key;
 
+                app.stores.push(key);
                 func(self);
 
                 if (!menu_ref.length)
@@ -86,6 +88,9 @@ function ApplicationBuilder(app) {
             dependencies: options.dependencies
         }
         page.menu.push(item);
+
+        if (store_ref == null)
+            app.stores.push(key);
 
         app.pages.push(page);
         app.pages_map[page.key] = page;
