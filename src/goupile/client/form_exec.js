@@ -716,12 +716,23 @@ let form_exec = new function() {
         }
 
         // Worksheet
-        let ws = XLSX.utils.aoa_to_sheet([columns.map(col => col.title)]);
+        let ws = XLSX.utils.aoa_to_sheet([[
+            '_ULID', '_ID', '_MDATE', '_MTIME',
+            ...columns.map(col => col.title)
+        ]]);
         for (let record of records) {
             let values = columns.map(col => {
                 let [value, ] = computeColumnValue(record, col);
                 return value;
             });
+
+            let mtime = new Date(record.mtime);
+            values = [
+                record.id, record.sequence,
+                mtime.toLocaleDateString(), mtime.toLocaleTimeString(),
+                ...values
+            ];
+
             XLSX.utils.sheet_add_aoa(ws, [values], {origin: -1});
         }
 
