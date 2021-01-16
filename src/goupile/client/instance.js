@@ -805,8 +805,12 @@ function InstanceController() {
     this.go = async function(e = null, url = null, push_history = true) {
         try {
             await goupile.syncProfile();
-            if (!goupile.isAuthorized())
+            if (!goupile.isAuthorized()) {
                 await goupile.runLogin();
+
+                if (ENV.backup_key != null)
+                    await backupClientData();
+            }
 
             // Update current route
             if (url != null) {
@@ -1070,6 +1074,43 @@ function InstanceController() {
             } else {
                 return '';
             }
+        }
+    }
+
+    async function backupClientData() {
+        let progress = log.progress('Archivage sécurisé des données');
+
+        try {
+            let range = IDBKeyRange.bound(profile.username + ':', profile.username + '`', false, true);
+            let objects = await db.loadAll('rec_records', range);
+
+            let records = [];
+            for (let enc of objects) {
+                try {
+                    let record = await goupile.decryptWithPassport(enc);
+                    records.push(record);
+                } catch (err) {
+                    console.log(err);
+                }
+            }
+
+            let enc = await goupile.encryptBackup(records);
+            let response = await fetch(`${ENV.base_url}api/files/backup`, {
+                method: 'POST',
+                body: JSON.stringify(enc)
+            });
+
+            if (response.ok) {
+                progress.success('Archive sécurisée envoyée');
+            } else if (response.status === 409) {
+                progress.info('Archivage ignoré (archive récente)');
+            } else {
+                let err = (await response.text()).trim();
+                throw new Error(err);
+            }
+        } catch (err) {
+            progress.close();
+            throw err;
         }
     }
 };
