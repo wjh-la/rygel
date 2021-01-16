@@ -28,6 +28,7 @@ static const char *DefaultConfig = R"(
 # DatabaseFile = goupile.db
 # InstanceDirectory = instances
 # TempDirectory = tmp
+# BackupDirectory = backup
 
 [Session]
 # DemoUser =
@@ -426,6 +427,8 @@ Options:
         if (!make_directory(domain.config.instances_directory))
             return 1;
         if (!make_directory(domain.config.temp_directory))
+            return 1;
+        if (!make_directory(domain.config.backup_directory))
             return 1;
     }
 
