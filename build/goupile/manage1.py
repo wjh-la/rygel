@@ -152,23 +152,21 @@ def update_instance_config(info):
     db.commit()
     db.close()
 
-def update_nginx_config(filename, instances, include = None):
-    instances = list(instances.items())
-    instances.sort(key = lambda t: t[1].domain)
+def update_nginx_config(directory, domain, instances, include = None):
+    filename = os.path.join(directory, f'{domain}.conf')
 
     with open(filename, 'w') as f:
-        for domain, items in itertools.groupby(instances, key = lambda t: t[1].domain):
-            print(f'server {{', file = f)
-            print(f'    server_name {domain};', file = f)
-            if include is not None:
-                print(f'    include {include};', file = f)
+        # print(f'server {{', file = f)
+        # print(f'    server_name {domain};', file = f)
+        # if include is not None:
+        #     print(f'    include {include};', file = f)
 
-            for instance, info in items:
-                print(f'    location {info.base_url} {{', file = f)
-                print(f'        proxy_pass http://127.0.0.1:{info.port};', file = f)
-                print(f'    }}', file = f)
+        for instance, info in instances:
+            print(f'    location {info.base_url} {{', file = f)
+            print(f'        proxy_pass http://127.0.0.1:{info.port};', file = f)
+            print(f'    }}', file = f)
 
-            print(f'}}', file = f)
+        # print(f'}}', file = f)
 
 def run_sync(config):
     instances = list_instances(config['Goupile.InstanceDirectory'], config['Goupile.DomainName'])
@@ -183,11 +181,20 @@ def run_sync(config):
             print(f'Instance {instance} is running old version')
             info.mismatch = True
 
-    # Update configuration files
-    print('Write configuration files', file = sys.stderr)
+    # Update instance configuration files
+    print('Write instance configuration files', file = sys.stderr)
     for instance, info in instances.items():
         update_instance_config(info)
-    update_nginx_config(config['NGINX.ConfigFile'], instances, config.get('NGINX.ServerInclude'))
+
+    # Update NGINX configuration files
+    print('Write NGINX configuration files', file = sys.stderr)
+    for name in os.listdir(config['NGINX.ConfigDirectory']):
+        if name.endswith('.conf'):
+            filename = os.path.join(config['NGINX.ConfigDirectory'], name)
+            os.unlink(filename)
+    for domain, items in itertools.groupby(instances.items(), key = lambda t: t[1].domain):
+        update_nginx_config(config['NGINX.ConfigDirectory'], domain, items,
+                            include = config.get('NGINX.ServerInclude'))
 
     # Sync systemd services
     for instance in services:
@@ -208,7 +215,7 @@ def run_sync(config):
     subprocess.run(['systemctl', 'reload', 'nginx.service'])
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description = 'Manage goupile.fr instances')
+    parser = argparse.ArgumentParser(description = 'Manage goupile.fr instances (v1)')
     parser.add_argument('-C', '--config', dest = 'config', action = 'store',
                         default = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'config.ini'),
                         help = 'Change configuration file')
