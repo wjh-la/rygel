@@ -115,7 +115,7 @@ def list_services():
         parts = re.split(' +', line)
 
         if len(parts) >= 4:
-            match = re.search('^goupile@([0-9A-Za-z_\\-]+)\\.service$', parts[1])
+            match = re.search('^goupile1@([0-9A-Za-z_\\-]+)\\.service$', parts[1])
 
             if match is not None:
                 name = match.group(1)
@@ -137,7 +137,7 @@ def list_services():
     return services
 
 def run_service_command(instance, cmd):
-    service = f'goupile@{instance}.service'
+    service = f'goupile1@{instance}.service'
     print(f'{cmd.capitalize()} {service}', file = sys.stderr)
     subprocess.run(['systemctl', cmd, '--quiet', service])
 
