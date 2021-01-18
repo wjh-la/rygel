@@ -33,12 +33,11 @@ function InstanceController() {
         initUI();
         await initApp();
 
-        window.onbeforeunload = e => {
-            if (form_state != null && form_state.hasChanged())
-                return 'Si vous confirmez vouloir quitter la page, les modifications en cours seront perdues !';
-        };
-
         self.go(null, window.location.href);
+    };
+
+    this.hasUnsavedData = function() {
+        return form_state != null && form_state.hasChanged();
     };
 
     async function initApp() {
