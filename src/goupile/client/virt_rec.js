@@ -317,7 +317,7 @@ function VirtualRecords(db, zone) {
                     for (let key in frag.values) {
                         let value = frag.values[key];
 
-                        if (!Array.isArray(value) && typeof value === 'object')
+                        if (typeof value === 'object' && value != null && !Array.isArray(value))
                             delete frag.values[key];
                     }
                 }
