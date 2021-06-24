@@ -19,6 +19,7 @@ function InstanceController() {
     let form_meta;
     let form_state;
     let data_rows;
+    let data_filter;
 
     let editor_el;
     let editor_ace;
@@ -134,10 +135,19 @@ function InstanceController() {
         });
 
         ui.createPanel('data', 0, true, () => {
+            let visible_rows = data_rows;
+            if (data_filter != null) {
+                let func = makeFilterFunction(data_filter);
+                visible_rows = visible_rows.filter(meta => func(meta.hid));
+            }
+
             return html`
                 <div class="padded">
                     <div class="ui_quick">
-                        ${data_rows.length || 'Aucune'} ${data_rows.length > 1 ? 'lignes' : 'ligne'}
+                        <input type="text" placeholder="Filtrer..." .value=${data_filter || ''}
+                               @input=${e => { data_filter = e.target.value || null; ui.render(); }} />
+                        <div style="flex: 1;"></div>
+                        ${visible_rows.length} ${visible_rows.length < data_rows.length ? `/ ${data_rows.length} ` : ''} ${data_rows.length > 1 ? 'lignes' : 'ligne'}
                         <div style="flex: 1;"></div>
                         <a @click=${ui.wrapAction(e => { data_rows = null; return self.go(e); })}>Rafraichir</a>
                     </div>
@@ -158,7 +168,7 @@ function InstanceController() {
                         </thead>
 
                         <tbody>
-                            ${data_rows.map(row => html`
+                            ${visible_rows.map(row => html`
                                 <tr class=${row.ulid === route.ulid ? 'active' : ''}>
                                     <td>
                                         <a @click=${ui.wrapAction(e => runDeleteRecordDialog(e, row.ulid))}>✕</a>
@@ -177,7 +187,7 @@ function InstanceController() {
                                     })}
                                 </tr>
                             `)}
-                            ${!data_rows.length ? html`<tr><td colspan=${2 + app.pages.size}>Aucune ligne à afficher</td></tr>` : ''}
+                            ${!visible_rows.length ? html`<tr><td colspan=${2 + app.pages.size}>Aucune ligne à afficher</td></tr>` : ''}
                         </tbody>
                     </table>
 
@@ -266,6 +276,77 @@ function InstanceController() {
 
         ui.setPanelState('data', true);
     };
+
+    function makeFilterFunction(filter) {
+        let re = '';
+        for (let i = 0; i < filter.length; i++) {
+            let c = filter[i].toLowerCase();
+
+            switch (c) {
+                case 'e':
+                case 'ê':
+                case 'é':
+                case 'è': { re += '[eèéê]'; } break;
+                case 'a':
+                case 'à':
+                case 'â': { re += '[aàâ]'; } break;
+                case 'i':
+                case 'ï': { re += '[iï]'; } break;
+                case 'u':
+                case 'ù': { re += '[uù]'; } break;
+                case 'ô': { re += '[ôo]'; } break;
+                case 'o': {
+                    if (filter[i + 1] === 'e') {
+                        re += '(oe|œ)';
+                        i++;
+                    } else {
+                        re += '[ôo]';
+                    }
+                } break;
+                case 'œ': { re += '(oe|œ)'; } break;
+                case '—':
+                case '–':
+                case '-': { re += '[—–\\-]'; } break;
+
+                // Escape special regex characters
+                case '/':
+                case '+':
+                case '*':
+                case '?':
+                case '<':
+                case '>':
+                case '&':
+                case '|':
+                case '\\':
+                case '^':
+                case '$':
+                case '(':
+                case ')':
+                case '{':
+                case '}':
+                case '[':
+                case ']': { re += `\\${c}`; } break;
+
+                // Special case '.' for CIM-10 codes
+                case '.': { re += `\\.?`; } break;
+
+                default: { re += c; } break;
+            }
+        }
+        re = new RegExp(re, 'i');
+
+        let func = value => {
+            if (value != null) {
+                if (typeof value !== 'string')
+                    value = value.toLocaleString();
+                return value.match(re);
+            } else {
+                return false;
+            }
+        };
+
+        return func;
+    }
 
     function togglePanel(e, key, enable = null) {
         ui.setPanelState(key, !ui.isPanelEnabled(key));
