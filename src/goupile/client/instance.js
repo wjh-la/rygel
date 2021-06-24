@@ -1025,6 +1025,12 @@ function InstanceController() {
                         console.log(err);
                     }
                 }
+
+                data_rows.sort(util.makeComparator(meta => meta.hid, navigator.language, {
+                    numeric: true,
+                    ignorePunctuation: true,
+                    sensitivity: 'base'
+                }));
             }
 
             // Fetch page code (for page panel)

@@ -239,6 +239,23 @@ const util = new function() {
         }
     };
 
+    this.makeComparator = function(key_func, locales, options = {}) {
+        let collator = new Intl.Collator(locales, options);
+
+        if (key_func != null) {
+            let func = (a, b) => {
+                a = key_func(a);
+                b = key_func(b);
+
+                return collator.compare(a, b);
+            };
+
+            return func;
+        } else {
+            return collator.compare;
+        }
+    };
+
     this.strToValue = function(str) {
         try {
             return JSON.parse(str);
