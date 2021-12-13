@@ -21,7 +21,7 @@
 namespace RG {
 
 // If you change InstanceVersion, don't forget to update the migration switch!
-const int InstanceVersion = 46;
+const int InstanceVersion = 47;
 
 bool InstanceHolder::Open(int64_t unique, InstanceHolder *master, const char *key, sq_Database *db, bool migrate)
 {
@@ -1404,9 +1404,37 @@ bool MigrateInstance(sq_Database *db)
                 )");
                 if (!success)
                     return false;
+            } [[fallthrough]];
+
+            case 46: {
+                bool success = db->RunMany(R"(
+                    CREATE TABLE rec_columns (
+                        form TEXT NOT NULL,
+                        key TEXT NOT NULL,
+                        before TEXT NOT NULL
+                    );
+                    CREATE UNIQUE INDEX rec_columns_fk ON rec_columns (form, key);
+                )");
+                if (!success)
+                    return false;
+
+                sq_Statement stmt;
+                if (!instance->db->Prepare(R"(SELECT e.form, e.root_ulid, e.ulid, e.hid,
+                                                     f.type, f.json FROM rec_entries e
+                                              INNER JOIN rec_entries r ON (r.ulid = e.root_ulid)
+                                              INNER JOIN rec_fragments f ON (f.ulid = e.ulid)
+                                              WHERE r.deleted = 0
+                                              ORDER BY f.anchor)", &stmt))
+                    return false;
+
+                while (stmt.Step()) {
+                    const char *form = (const char *)sqlite3_column_text(stmt, 0);
+                    Span<const char> json = MakeSpan((const char *)sqlite3_column_blob(stmt, 1),
+                                                     sqlite3_column_bytes(stmt, 1));
+                }
             } // [[fallthrough]];
 
-            RG_STATIC_ASSERT(InstanceVersion == 46);
+            RG_STATIC_ASSERT(InstanceVersion == 47);
         }
 
         if (!db->Run("INSERT INTO adm_migrations (version, build, time) VALUES (?, ?, ?)",
