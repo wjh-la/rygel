@@ -21,7 +21,7 @@
 namespace RG {
 
 // If you change InstanceVersion, don't forget to update the migration switch!
-const int InstanceVersion = 48;
+const int InstanceVersion = 49;
 
 bool InstanceHolder::Open(int64_t unique, InstanceHolder *master, const char *key, sq_Database *db, bool migrate)
 {
@@ -167,6 +167,165 @@ bool InstanceHolder::Open(int64_t unique, InstanceHolder *master, const char *ke
 bool InstanceHolder::Checkpoint()
 {
     return db->Checkpoint();
+}
+
+/*struct ColumnInfo {
+    const char *store;
+    const char *key;
+    const ColumnInfo *after;
+    const ColumnInfo *sibling;
+    int64_t generation;
+};*/
+
+enum class ColumnType {
+    Bool = 1,
+    Number = 2,
+    String = 3
+};
+
+static bool UpdateColumn(const char *store, ColumnType type)
+{
+    bool success = db->Run(R"(INSERT INTO rec_columns (store, variable, before, type, anchor)
+                              VALUES (?1, ?2, ?3, ?4, ?5)
+                              ON CONFLICT DO UPDATE SET before = excluded.before,
+                                                        type = MAX(type, excluded.type),
+                                                        anchor = excluded.anchor)",
+                           store, key, before, (int)type, anchor);
+    return success;
+}
+
+static bool ListColumns(json_Parser *parser)
+{
+    parser->ParseObject();
+    while (parser->InObject()) {
+        Span<const char> key = {};
+        parser->ParseKey(&key);
+
+        switch (parser->PeekToken()) {
+            // Ignore columns with only missing values
+            case json_TokenType::Null: { parser->ParseNull(); } break;
+
+            case json_TokenType::Bool: {
+                bool value = false;
+                parser->ParseBool(&value);
+
+                if (!UpdateColumn(store, ColumnType::Bool))
+                    return false;
+            } break;
+            case json_TokenType::Integer: {
+                int64_t value = 0;
+                parser->ParseInt(&value);
+
+                if (!UpdateColumn(store, ColumnType::Number))
+                    return false;
+            } break;
+            case json_TokenType::Double: {
+                double value = 0.0;
+                parser->ParseDouble(&value);
+
+                if (!UpdateColumn(store, ColumnType::Number))
+                    return false;
+            } break;
+            case json_TokenType::String: {
+                const char *str = nullptr;
+                parser->ParseString(&str);
+
+                if (!UpdateColumn(store, ColumnType::String))
+                    return false;
+            } break;
+
+            case json_TokenType::StartArray: {
+                // XXX: table->masked_columns.Set(key.ptr);
+
+                parser->ParseArray();
+                while (parser->InArray()) {
+                    switch (parser->PeekToken()) {
+                        case json_TokenType::Null: {
+                            parser->ParseNull();
+
+                            if (!UpdateColumn(store, ColumnType::String))
+                                return false;
+                        } break;
+                        case json_TokenType::Bool: {
+                            bool value = false;
+                            parser->ParseBool(&value);
+
+                            const char *str = value ? "1" : "0";
+
+                            if (!UpdateColumn(store, ColumnType::String))
+                                return false;
+                        } break;
+                        case json_TokenType::Integer: {
+                            int64_t value = 0;
+                            parser->ParseInt(&value);
+
+                            char str[64];
+                            Fmt(str, "%1", value);
+
+                            if (!UpdateColumn(store, ColumnType::String))
+                                return false;
+                        } break;
+                        case json_TokenType::Double: {
+                            double value = 0.0;
+                            parser->ParseDouble(&value);
+
+                            char str[64];
+                            Fmt(str, "%1", value);
+
+                            if (!UpdateColumn(store, ColumnType::String))
+                                return false;
+                        } break;
+                        case json_TokenType::String: {
+                            const char *str = nullptr;
+                            parser->ParseString(&str);
+
+                            if (!UpdateColumn(store, ColumnType::String))
+                                return false;
+                        } break;
+
+                        default: {
+                            LogError("The exporter does not support arrays of objects");
+                            return false;
+                        } break;
+                    }
+                }
+            } break;
+
+            case json_TokenType::StartObject: {
+                if (RG_UNLIKELY(depth >= 8)) {
+                    LogError("Excessive nesting of objects");
+                    return false;
+                }
+
+                if (key.len && std::all_of(key.begin(), key.end(), IsAsciiDigit)) {
+                    const char *form2 = Fmt(&str_alloc, "%1.%2", form, prefix).ptr;
+                    const char *ulid2 = Fmt(&str_alloc, "%1.%2", ulid, key).ptr;
+
+                    if (!ListColumns(parser))
+                        return false;
+                } else if (prefix) {
+                    const char *prefix2 = Fmt(&str_alloc, "%1.%2", prefix, key).ptr;
+
+                    if (!ListColumns(parser))
+                        return false;
+                } else {
+                    if (!ListColumns(parser))
+                        return false;
+                }
+            } break;
+
+            default: {
+                if (parser->IsValid()) {
+                    LogError("Unexpected JSON token type for '%1'", key);
+                }
+                return false;
+            } break;
+        }
+    }
+    if (!parser->IsValid())
+        return false;
+
+    return true;
 }
 
 bool MigrateInstance(sq_Database *db)
@@ -1444,9 +1603,42 @@ bool MigrateInstance(sq_Database *db)
                 )");
                 if (!success)
                     return false;
+            } [[fallthrough]];
+
+            case 48: {
+                bool success = db->RunMany(R"(
+                    CREATE TABLE rec_columns (
+                        store TEXT NOT NULL,
+                        variable TEXT NOT NULL,
+                        before TEXT,
+                        type INTEGER NOT NULL,
+                        anchor INTEGER NOT NULL
+                    );
+                    CREATE UNIQUE INDEX rec_columns_sv (store, variable);
+                    CREATE INDEX rec_columns_sb (store, before);
+                )");
+                if (!success)
+                    return false;
+
+                sq_Statement stmt;
+                if (db->Prepare(R"(SELECT f.json FROM rec_entries e
+                                   INNER JOIN rec_entries r ON (r.ulid = e.root_ulid)
+                                   INNER JOIN rec_fragments f ON (f.ulid = e.ulid)
+                                   WHERE r.deleted = 0
+                                   ORDER BY e.rowid, f.anchor)", &stmt))
+                    return false;
+
+                while (stmt.Step()) {
+                    Span<const char> json = MakeSpan((const char *)sqlite3_column_blob(stmt, 0),
+                                                     sqlite3_column_bytes(stmt, 0));
+
+
+                }
+                if (!stmt.IsValid())
+                    return false;
             } // [[fallthrough]];
 
-            RG_STATIC_ASSERT(InstanceVersion == 48);
+            RG_STATIC_ASSERT(InstanceVersion == 49);
         }
 
         if (!db->Run("INSERT INTO adm_migrations (version, build, time) VALUES (?, ?, ?)",
