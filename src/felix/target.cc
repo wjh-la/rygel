@@ -31,6 +31,7 @@ struct TargetConfig {
     bool enable_by_default;
 
     FileSet src_file_set;
+    HeapArray<const char *> src_wasm;
     const char *c_pch_filename;
     const char *cxx_pch_filename;
 
@@ -235,6 +236,15 @@ bool TargetSetBuilder::LoadIni(StreamReader *st)
                                 target_config.src_file_set.ignore.Append(copy);
                             }
                         }
+                    } else if (prop.key == "SourceWasm") {
+                        while (prop.value.len) {
+                            Span<const char> part = TrimStr(SplitStrAny(prop.value, " ,", &prop.value));
+
+                            if (part.len) {
+                                const char *copy = DuplicateString(part, &set.str_alloc).ptr;
+                                target_config.src_wasm.Append(copy);
+                            }
+                        }
                     } else if (prop.key == "ImportFrom") {
                         while (prop.value.len) {
                             Span<const char> part = TrimStr(SplitStrAny(prop.value, " ,", &prop.value));
@@ -416,18 +426,21 @@ const TargetInfo *TargetSetBuilder::CreateTarget(TargetConfig *target_config)
             if (!DetermineSourceType(src_filename, &src_type))
                 continue;
 
-            const SourceFileInfo *src = CreateSource(target, src_filename, src_type);
+            bool wasm = std::find_if(target_config->src_wasm.begin(), target_config->src_wasm.end(),
+                                     [&](const char *pattern) { return MatchPathSpec(src_filename, pattern); }) != target_config->src_wasm.end();
+            const SourceFileInfo *src = CreateSource(target, src_filename, src_type, wasm);
+
             target->sources.Append(src);
         }
     }
 
     // PCH
     if (target_config->c_pch_filename) {
-        target->c_pch_src = CreateSource(target, target_config->c_pch_filename, SourceType::C);
+        target->c_pch_src = CreateSource(target, target_config->c_pch_filename, SourceType::C, false);
         target->pchs.Append(target->c_pch_src->filename);
     }
     if (target_config->cxx_pch_filename) {
-        target->cxx_pch_src = CreateSource(target, target_config->cxx_pch_filename, SourceType::CXX);
+        target->cxx_pch_src = CreateSource(target, target_config->cxx_pch_filename, SourceType::CXX, false);
         target->pchs.Append(target->cxx_pch_src->filename);
     }
 
@@ -480,7 +493,8 @@ const TargetInfo *TargetSetBuilder::CreateTarget(TargetConfig *target_config)
     return target;
 }
 
-const SourceFileInfo *TargetSetBuilder::CreateSource(const TargetInfo *target, const char *filename, SourceType type)
+const SourceFileInfo *TargetSetBuilder::CreateSource(const TargetInfo *target, const char *filename,
+                                                     SourceType type, bool wasm)
 {
     std::pair<SourceFileInfo **, bool> ret = set.sources_map.TrySetDefault(filename);
 
@@ -490,6 +504,7 @@ const SourceFileInfo *TargetSetBuilder::CreateSource(const TargetInfo *target, c
         src->target = target;
         src->filename = DuplicateString(filename, &set.str_alloc).ptr;
         src->type = type;
+        src->wasm = wasm;
 
         *ret.first = src;
     }

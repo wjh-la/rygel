@@ -436,8 +436,10 @@ bool Builder::AddTarget(const TargetInfo &target)
     return true;
 }
 
-const char *Builder::AddSource(const SourceFileInfo &src, const char *ns)
+const char *Builder::AddSourceNative(const SourceFileInfo &src, const char *ns)
 {
+    RG_ASSERT(!src.wasm);
+
     // Precompiled header (if any)
     const char *pch_filename = nullptr;
     if (build.features & (int)CompileFeature::PCH) {
@@ -519,6 +521,45 @@ const char *Builder::AddSource(const SourceFileInfo &src, const char *ns)
     }
 
     return obj_filename;
+}
+
+const char *Builder::AddSourceWasm(const SourceFileInfo &src, const char *ns)
+{
+    RG_ASSERT(src.wasm);
+
+    const char *obj_filename = build_map.FindValue({ns, src.filename}, nullptr);
+
+    // Build object
+    if (!obj_filename) {
+        obj_filename = BuildObjectPath(ns, src.filename, cache_directory,
+                                       build.compiler->GetObjectExtension(), &str_alloc);
+        bool warnings = (src.target->type != TargetType::ExternalLibrary);
+        uint32_t features = src.target->CombineFeatures(build.features);
+
+        Command cmd = {};
+        build.compiler->MakeObjectCommand(src.filename, src.type, warnings,
+                                          pch_filename, src.target->definitions, src.target->include_directories,
+                                          src.target->include_files, features, build.env,
+                                          obj_filename, &str_alloc, &cmd);
+
+        const char *text = Fmt(&str_alloc, "Compile %!..+%1%!0", src.filename).ptr;
+        if (pch_filename ? AppendNode(text, obj_filename, cmd, {src.filename, pch_filename}, ns)
+                         : AppendNode(text, obj_filename, cmd, src.filename, ns)) {
+            if (!build.fake && !EnsureDirectoryExists(obj_filename))
+                return nullptr;
+        }
+    }
+
+    return obj_filename;
+}
+
+const char *Builder::AddSource(const SourceFileInfo &src, const char *ns)
+{
+    if (src.wasm) {
+        return AddSourceWasm(src, ns);
+    } else {
+        return AddSourceNative(src, ns);
+    }
 }
 
 bool Builder::Build(int jobs, bool verbose)

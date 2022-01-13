@@ -34,6 +34,7 @@ struct SourceFileInfo {
 
     const char *filename;
     SourceType type;
+    bool wasm;
 
     RG_HASHTABLE_HANDLER(SourceFileInfo, filename);
 };
@@ -106,7 +107,7 @@ public:
 
 private:
     const TargetInfo *CreateTarget(TargetConfig *target_config);
-    const SourceFileInfo *CreateSource(const TargetInfo *target, const char *filename, SourceType type);
+    const SourceFileInfo *CreateSource(const TargetInfo *target, const char *filename, SourceType type, bool wasm);
 
     bool MatchHostSuffix(Span<const char> str, bool *out_match);
 };

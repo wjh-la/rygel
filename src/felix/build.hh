@@ -129,6 +129,9 @@ public:
     bool Build(int jobs, bool verbose);
 
 private:
+    const char *AddSourceNative(const SourceFileInfo &src, const char *ns = nullptr);
+    const char *AddSourceWasm(const SourceFileInfo &src, const char *ns = nullptr);
+
     void SaveCache();
     void LoadCache();
 
