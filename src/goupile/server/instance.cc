@@ -21,7 +21,7 @@
 namespace RG {
 
 // If you change InstanceVersion, don't forget to update the migration switch!
-const int InstanceVersion = 48;
+const int InstanceVersion = 49;
 
 bool InstanceHolder::Open(int64_t unique, InstanceHolder *master, const char *key, sq_Database *db, bool migrate)
 {
@@ -1444,9 +1444,23 @@ bool MigrateInstance(sq_Database *db)
                 )");
                 if (!success)
                     return false;
+            } [[fallthrough]];
+
+            case 48: {
+                bool success = db->RunMany(R"(
+                    CREATE TABLE seq_constraints (
+                        key TEXT NOT NULL,
+                        value TEXT NOT NULL,
+                        ulid TEXT NOT NULL REFERENCES rec_entries (ulid) ON DELETE CASCADE,
+                    );
+                    CREATE UNIQUE INDEX seq_constraints_kv ON seq_constraints (key, value);
+                    CREATE UNIQUE INDEX seq_constraints_ku ON seq_constraints (key, ulid);
+                )");
+                if (!success)
+                    return false;
             } // [[fallthrough]];
 
-            RG_STATIC_ASSERT(InstanceVersion == 48);
+            RG_STATIC_ASSERT(InstanceVersion == 49);
         }
 
         if (!db->Run("INSERT INTO adm_migrations (version, build, time) VALUES (?, ?, ?)",
