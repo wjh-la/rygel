@@ -785,24 +785,32 @@ const goupile = new function() {
         document.location.href = reload;
     }
 
-    this.runLockDialog = function(e, ctx) {
-        return ui.runDialog(e, 'Verrouillage', {}, (d, resolve, reject) => {
-            let pin = d.pin('*pin', 'Code de déverrouillage');
-            if (pin.value != null && pin.value.length < 4)
-                pin.error('Ce code est trop court', true);
+    this.runLockDialog = async function(e, ctx) {
+        if (navigator.hid != null) {
+            return self.lockDevice(e, ctx);
+        } else {
+            return ui.runDialog(e, 'Verrouillage', {}, (d, resolve, reject) => {
+                let pin = d.pin('*pin', 'Code de déverrouillage');
+                if (pin.value != null && pin.value.length < 4)
+                    pin.error('Ce code est trop court', true);
 
-            d.action('Verrouiller', {disabled: !d.isValid()}, e => goupile.lock(e, pin.value, ctx));
-        });
+                d.action('Verrouiller', {disabled: !d.isValid()}, e => self.lockPin(e, pin.value, ctx));
+            });
+        }
     };
 
     this.runUnlockDialog = function(e) {
-        return ui.runDialog(e, 'Déverrouillage', {}, (d, resolve, reject) => {
-            let pin = d.pin('*pin', 'Code de déverrouillage');
-            d.action('Déverrouiller', {disabled: !d.isValid()}, e => goupile.unlock(e, pin.value));
-        });
+        if (navigator.hid != null) {
+            return self.unlockDevice(e);
+        } else {
+            return ui.runDialog(e, 'Déverrouillage', {}, (d, resolve, reject) => {
+                let pin = d.pin('*pin', 'Code de déverrouillage');
+                d.action('Déverrouiller', {disabled: !d.isValid()}, e => self.unlockPin(e, pin.value));
+            });
+        }
     };
 
-    this.lock = async function(e, password, ctx = null) {
+    this.lockPin = async function(e, password, ctx) {
         let session_rnd = util.getCookie('session_rnd');
 
         if (self.isLocked())
@@ -818,12 +826,70 @@ const goupile = new function() {
 
         let salt = nacl.randomBytes(24);
         let key = await deriveKey(password, salt);
+
+        await lock(session_rnd, key, salt, ctx);
+    };
+
+    this.lockDevice = async function(e, ctx) {
+        let session_rnd = util.getCookie('session_rnd');
+
+        if (self.isLocked())
+            throw new Error('Cannot lock unauthorized session');
+        if (typeof ctx == undefined)
+            throw new Error('Lock context must not be undefined');
+        if (session_rnd == null)
+            throw new Error('Cannot lock without session cookie');
+        if (profile_keys.lock == null)
+            throw new Error('Cannot lock session without lock key');
+
+        await self.confirmDangerousAction(e);
+
+        let device = await findLockDevice(true);
+
+        let key = new Uint8Array(32);
+        crypto.getRandomValues(key);
+
+        let reports = [];
+        {
+            let msg = ['S'];
+            for (let i = 0; i < key.length; i++) {
+                let part = key[i].toString(16).padStart(2, '0');
+                msg.push(part);
+            }
+            msg = msg.join('');
+
+            for (let i = 0; i < msg.length; i += 32) {
+                let len = Math.min(32, msg.length - i);
+                let part = msg.substr(i, len);
+
+                let buf = (new TextEncoder('ascii')).encode(part);
+                let report = new Uint8Array(32);
+                report.set(buf, 0);
+
+                reports.push(report);
+            }
+        }
+
+        try {
+            await device.open();
+
+            for (let report of reports)
+                await device.sendReport(0, report);
+        } finally {
+            if (device.opened)
+                device.close();
+        }
+
+        await lock(session_rnd, key, null, ctx);
+    }
+
+    async function lock(session_rnd, key, salt, ctx) {
         let enc = await encryptSecretBox(session_rnd, key);
 
         let lock = {
             userid: profile.userid,
             username: profile.username,
-            salt: bytesToBase64(salt),
+            salt: salt != null ? bytesToBase64(salt) : null,
             errors: 0,
             namespaces: {
                 records: profile.namespaces.records
@@ -841,9 +907,9 @@ const goupile = new function() {
         window.onbeforeunload = null;
         document.location.href = ENV.urls.instance;
         await util.waitFor(2000);
-    };
+    }
 
-    this.unlock = async function(e, password) {
+    this.unlockPin = async function(e, password) {
         await self.confirmDangerousAction(e);
 
         let lock = await loadSessionValue('lock');
@@ -852,6 +918,59 @@ const goupile = new function() {
 
         let key = await deriveKey(password, base64ToBytes(lock.salt));
 
+        await unlock(lock, key);
+    };
+
+    this.unlockDevice = async function(e) {
+        await self.confirmDangerousAction(e);
+
+        let lock = await loadSessionValue('lock');
+        if (lock == null)
+            throw new Error('Session is not locked');
+
+        let device = await findLockDevice(false);
+
+        let key;
+        try {
+            await device.open();
+
+            let read = new Promise((resolve, reject) => {
+                let buf = '';
+
+                device.addEventListener('inputreport', e => {
+                    let str = (new TextDecoder('ascii')).decode(e.data).replace(/\0/g, '');
+                    buf += str;
+
+                    if (buf.length == 64) {
+                        let key = new Uint8Array(32);
+
+                        for (let i = 0; i < buf.length; i += 2)
+                            key[i / 2] = parseInt(buf.substr(i, 2), 16);
+
+                        resolve(key);
+                    }
+                });
+
+                util.waitFor(4000).then(() => {
+                    let err = new Error('Unlock device is not responding');
+                    reject(err);
+                });
+            });
+
+            let report = new Uint8Array(32);
+            report[0] = 71; // G
+            await device.sendReport(0, report);
+
+            key = await read;
+        } finally {
+            if (device.opened)
+                device.close();
+        }
+
+        await unlock(lock, key);
+    };
+
+    async function unlock(lock, key) {
         // Instantaneous unlock feels weird
         let progress = log.progress('Déverrouillage en cours');
         await util.waitFor(800);
@@ -887,7 +1006,28 @@ const goupile = new function() {
         window.onbeforeunload = null;
         document.location.reload();
         await util.waitFor(2000);
-    };
+    }
+
+    async function findLockDevice(prompt = true) {
+        let devices = await navigator.hid.getDevices();
+
+        if (!devices.length && prompt) {
+            devices = await navigator.hid.requestDevice({
+                filters: [{
+                    vendorId: 0x16c0,
+                    productId: 0x486,
+                    usage: 0x4,
+                    usagePage: 0xFFC9
+                }]
+            });
+
+        }
+        if (!devices.length)
+            throw new Error('Cannot find USB lock device');
+
+        let device = devices[0];
+        return device;
+    }
 
     this.confirmDangerousAction = function(e) {
         if (controller == null)
