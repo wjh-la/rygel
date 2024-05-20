@@ -2,7 +2,7 @@ diff --git a/vendor/webkit/webkit/Source/JavaScriptCore/API/JSStringRef.cpp b/ve
 index a13221422c..7206407a93 100644
 --- a/vendor/webkit/webkit/Source/JavaScriptCore/API/JSStringRef.cpp
 +++ b/vendor/webkit/webkit/Source/JavaScriptCore/API/JSStringRef.cpp
-@@ -59,6 +59,23 @@ JSStringRef JSStringCreateWithUTF8CString(const char* string)
+@@ -59,6 +59,22 @@ JSStringRef JSStringCreateWithUTF8CString(const char* string)
      return &OpaqueJSString::create().leakRef();
  }
  
@@ -10,14 +10,13 @@ index a13221422c..7206407a93 100644
 +{
 +    JSC::initialize();
 +
++    auto stringSpan = std::span<const LChar>((const LChar *)string, numBytes);
 +    Vector<UChar, 1024> buffer(numBytes);
-+    UChar* p = buffer.data();
-+    bool sourceIsAllASCII;
-+    const LChar* stringStart = reinterpret_cast<const LChar*>(string);
-+    if (convertUTF8ToUTF16(string, string + numBytes, &p, p + numBytes, &sourceIsAllASCII)) {
-+        if (sourceIsAllASCII)
-+            return &OpaqueJSString::create(stringStart, numBytes).leakRef();
-+        return &OpaqueJSString::create(buffer.data(), p - buffer.data()).leakRef();
++    auto result = WTF::Unicode::convert(spanReinterpretCast<const char8_t>(stringSpan), buffer.mutableSpan());
++    if (result.code == WTF::Unicode::ConversionResultCode::Success) {
++        if (result.isAllASCII)
++            return &OpaqueJSString::create(stringSpan).leakRef();
++        return &OpaqueJSString::create(result.buffer).leakRef();
 +    }
 +
 +    return &OpaqueJSString::create().leakRef();

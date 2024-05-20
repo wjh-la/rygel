@@ -1,79 +1,131 @@
 #!/usr/bin/env node
 
-const WEBKIT = 'WebKit-7617.1.17.10.10';
-const ICU = 'release-74-1';
-
 const fs = require('fs');
 const os = require('os');
 const { spawnSync } = require('child_process');
 
+const WEBKIT = 'WebKit-7619.1.12.2';
+const ICU = 'release-75-1';
+
 main()
 
 function main() {
-    process.chdir(__dirname)
+    process.chdir(__dirname);
 
-    // Get host information
-    let platform;
-    let architecture;
+    let icu = false;
+    let webkit = false;
+    let jobs = os.cpus().length + 1;
+    let debug = false;
+
+    // Parse options
     {
-        let proc = spawnSync('../../felix', ['--version']);
-        if (proc.status !== 0)
-            throw new Error('Failed to get host information from felix');
-        let output = proc.stdout.toString();
+        if (process.argv[2] == '--help') {
+            printUsage();
+            return;
+        }
 
-        try {
-            platform = output.match(/Host: (?:[a-zA-Z0-9_]+\/)*([a-zA-Z0-9_]+)/)[1];
-            architecture = output.match(/Architecture: ([a-zA-Z0-9_]+)/)[1];
-        } catch (err) {
-            throw new Error('Failed to get host information from felix');
+        for (let i = 2; i < process.argv.length; i++) {
+            let arg = process.argv[i];
+            let value = null;
+
+            if (arg[0] == '-') {
+                if (arg.length > 2 && arg[1] != '-') {
+                    value = arg.substr(2);
+                    arg = arg.substr(0, 2);
+                } else if (arg[1] == '-') {
+                    let offset = arg.indexOf('=');
+
+                    if (offset > 2 && arg.length > offset + 1) {
+                        value = arg.substr(offset + 1);
+                        arg = arg.substr(0, offset);
+                    }
+                }
+                if (value == null && process.argv[i + 1] != null && process.argv[i + 1][0] != '-') {
+                    value = process.argv[i + 1];
+                    i++; // Skip this value next iteration
+                }
+            }
+
+            if (arg == '--help') {
+                printUsage();
+                return;
+            } else if (arg == '--icu') {
+                icu = true;
+            } else if (arg == '--webkit') {
+                webkit = true;
+            } else if (arg == '-j' || arg == '--jobs') {
+                jobs = parseInt(value, 10);
+
+                if (isNaN(jobs))
+                    throw new Error(`Missing or invalid value for --jobs`);
+            } else if (arg == '-d' || arg == '--debug') {
+                debug = true;
+            } else if (arg[0] == '-') {
+                throw new Error(`Unexpected argument '${arg}'`);
+            }
         }
     }
 
-    // Cleanup
-    if (fs.existsSync('icu'))
-        fs.rmSync('icu', { recursive: true, force: true });
-    if (fs.existsSync('webkit'))
-        fs.rmSync('webkit', { recursive: true, force: true });
-
-    // Clone ICU repository
-    run('.', 'git', ['clone', '--branch', ICU, '--depth', '1', 'https://github.com/unicode-org/icu.git', 'icu'])
-    fs.rmSync('webkit/.git', { recursive: true, force: true });
-
-    // Clone WebKit repository
-    run('.', 'git', ['clone', '--branch', WEBKIT, '--depth', '1', 'https://github.com/WebKit/WebKit.git', 'webkit'])
-    fs.rmSync('webkit/.git', { recursive: true, force: true });
-
-    build_icu(platform, architecture);
-    build_webkit(platform, architecture);
-}
-
-function build_icu(platform, architecture) {
-    // Apply patch files
-    for (let basename of fs.readdirSync('../_patches')) {
-        if (!basename.startsWith('icu_'))
-            continue;
-
-        let filename = '../_patches/' + basename;
-        run('git', ['apply', filename]);
+    if (!icu && !webkit) {
+        icu = true;
+        webkit = true;
     }
 
-    // Build ICU
-    {
-        if (fs.existsSync('icu/build'))
-            fs.rmSync('icu/build', { recursive: true, force: true });
-        fs.mkdirSync('icu/build', { mode: 0o755 });
+    // Clone repositories
+    if (icu)
+        clone('icu', ICU, 'https://github.com/unicode-org/icu.git');
+    if (webkit)
+        clone('webkit', WEBKIT, 'https://github.com/WebKit/WebKit.git');
 
-        run('icu/build', '../icu4c/source/runConfigureICU', [
-            'Linux',
-            '--enable-shared', '--enable-static'
-        ]);
-        run('icu/build', 'make', ['-j' + (os.cpus().length + 1)]);
+    // And build
+    if (icu)
+        buildICU(jobs, debug);
+    if (webkit)
+        buildWebKit(jobs, debug);
+}
+
+function printUsage() {
+    console.log('./build.js [--debug] [-j <cores>] [--icu] [--webkit]');
+}
+
+function clone(name, branch, url) {
+    if (!fs.existsSync(name + '/VERSION') || fs.readFileSync(name + '/VERSION', { encoding: 'UTF-8' }).trim() != branch)
+        fs.rmSync(name, { recursive: true, force: true });
+
+    if (!fs.existsSync(name)) {
+        run('.', 'git', ['clone', '--branch', branch, '--depth', '1', url, name]);
+        fs.rmSync(name + '/.git', { recursive: true, force: true });
+
+        for (let basename of fs.readdirSync('../_patches')) {
+            if (!basename.startsWith(name + '_'))
+                continue;
+
+            let filename = '../_patches/' + basename;
+            run('.', 'git', ['apply', filename]);
+        }
+
+        fs.writeFileSync(name + '/VERSION', branch, { encoding: 'UTF-8' });
+    }
+}
+
+function buildICU(jobs, debug) {
+    fs.mkdirSync('icu/build', { mode: 0o755, recursive: true });
+
+    // Build WebAssembly ICU
+    {
+        let args = ['wasm32', '--enable-static', '--disable-shared'];
+
+        if (debug)
+            args.push('--enable-debug');
+
+        run('icu/build', '../icu4c/source/runConfigureICU', args);
+        run('icu/build', 'emmake', ['make', '-j' + jobs]);
     }
 
     // Copy library files
     {
         let src_dir = 'icu/build/lib';
-        let lib_dir = 'lib/' + platform + '/' + architecture;
+        let lib_dir = 'lib';
 
         fs.mkdirSync(lib_dir, { recursive: true, mode: 0o755 });
 
@@ -105,42 +157,33 @@ function build_icu(platform, architecture) {
     }
 }
 
-function build_webkit(platform, architecture) {
-    // Apply patch files
-    for (let basename of fs.readdirSync('../_patches')) {
-        if (!basename.startsWith('webkit_'))
-            continue;
+function buildWebKit(jobs, debug) {
+    fs.mkdirSync('webkit/build', { mode: 0o755, recursive: true });
 
-        let filename = '../_patches/' + basename;
-        run('.', 'git', ['apply', filename]);
-    }
-
-    // Build JSCore
+    // Build in WebAssembly
     {
-        if (fs.existsSync('webkit/build'))
-            fs.rmSync('webkit/build', { recursive: true, force: true });
-        fs.mkdirSync('webkit/build', { mode: 0o755 });
-
-        run('webkit/build', 'cmake', [
-            '-G', 'Ninja',
-            '-DPORT=JSCOnly',
+        run('webkit/build', 'emcmake', [
+            'cmake', '-G', 'Ninja', '-DPORT=JSCOnly',
             '-DICU_INCLUDE_DIR=../../icu/build/include',
             '-DICU_DATA_LIBRARY_RELEASE=../../icu/build/lib/libicudata.a',
             '-DICU_I18N_LIBRARY_RELEASE=../../icu/build/lib/libicui18n.a',
             '-DICU_UC_LIBRARY_RELEASE=../../icu/build/lib/libicuuc.a',
             '-DCMAKE_CXX_FLAGS=-DU_STATIC_IMPLEMENTATION',
-            '-DCMAKE_BUILD_TYPE=Release',
-            '-DDEVELOPER_MODE=OFF', '-DENABLE_FTL_JIT=ON',
-            '-DENABLE_STATIC_JSC=ON', '-DUSE_THIN_ARCHIVES=OFF',
+            '-DCMAKE_BUILD_TYPE=' + (debug ? 'RelWithDebInfo' : 'MinSizeRel'),
+            '-DENABLE_TOOLS=OFF', '-DDEVELOPER_MODE=OFF',
+            '-DENABLE_JIT=OFF', '-DENABLE_C_LOOP=ON',
+            '-DENABLE_SAMPLING_PROFILER=OFF', '-DENABLE_WEBASSEMBLY=OFF',
+            '-DENABLE_STATIC_JSC=OFF', '-DUSE_THIN_ARCHIVES=OFF',
             '..'
         ]);
-        run('webkit/build', 'ninja');
+
+        run('webkit/build', 'ninja', ['-j' + jobs]);
     }
 
     // Copy library files
     {
-        let src_dir = 'webkit/build/lib'
-        let lib_dir = 'lib/' + platform + '/' + architecture;
+        let src_dir = 'webkit/build/lib';
+        let lib_dir = 'lib';
 
         fs.mkdirSync(lib_dir, { recursive: true, mode: 0o755 });
 
@@ -158,7 +201,7 @@ function build_webkit(platform, architecture) {
     // Copy and patch header files
     {
         let src_dir = 'webkit/build/JavaScriptCore/Headers/JavaScriptCore';
-        let include_dir = 'include/JavaScriptCore'
+        let include_dir = 'include/JavaScriptCore';
 
         if (fs.existsSync(include_dir))
             fs.rmSync(include_dir, { recursive: true, force: true });
@@ -180,7 +223,18 @@ function build_webkit(platform, architecture) {
 }
 
 function run(cwd, cmd, args = []) {
+    console.log(cmd, ...args);
+
     let proc = spawnSync(cmd, args, { cwd: cwd, stdio: 'inherit' });
     if (proc.status !== 0)
         throw new Error(`Command failed: ${cmd}`);
+}
+
+function capture(cwd, cmd, args = []) {
+    let proc = spawnSync(cmd, args, { cwd: cwd, stdio: ['inherit', 'pipe', 'inherit'] });
+    if (proc.status !== 0)
+        throw new Error(`Command failed: ${cmd}`);
+
+    let output = proc.stdout.toString('utf-8').trim();
+    return output;
 }
