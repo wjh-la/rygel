@@ -1,7 +1,7 @@
 // Copyright 2023 Niels Martignène <niels.martignene@protonmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of
-// this software and associated documentation files (the “Software”), to deal in 
+// this software and associated documentation files (the “Software”), to deal in
 // the Software without restriction, including without limitation the rights to use,
 // copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
 // Software, and to permit persons to whom the Software is furnished to do so,
@@ -50,10 +50,10 @@ try {
         case 'freebsd_arm64': { native = require('./build/koffi/freebsd_arm64/koffi.node'); } break;
         case 'freebsd_ia32': { native = require('./build/koffi/freebsd_ia32/koffi.node'); } break;
         case 'freebsd_x64': { native = require('./build/koffi/freebsd_x64/koffi.node'); } break;
-        case 'linux_arm32hf': { native = require('./build/koffi/linux_arm32hf/koffi.node'); } break;
+        case 'linux_armhf': { native = require('./build/koffi/linux_armhf/koffi.node'); } break;
         case 'linux_arm64': { native = require('./build/koffi/linux_arm64/koffi.node'); } break;
         case 'linux_ia32': { native = require('./build/koffi/linux_ia32/koffi.node'); } break;
-        case 'linux_riscv64hf64': { native = require('./build/koffi/linux_riscv64hf64/koffi.node'); } break;
+        case 'linux_riscv64d': { native = require('./build/koffi/linux_riscv64d/koffi.node'); } break;
         case 'linux_x64': { native = require('./build/koffi/linux_x64/koffi.node'); } break;
         case 'openbsd_ia32': { native = require('./build/koffi/openbsd_ia32/koffi.node'); } break;
         case 'openbsd_x64': { native = require('./build/koffi/openbsd_x64/koffi.node'); } break;
@@ -75,7 +75,8 @@ if (native == null) {
     let names = [
         `/build/koffi/${process.platform}_${arch}/koffi.node`,
         `/koffi/${process.platform}_${arch}/koffi.node`,
-        `/node_modules/koffi/build/koffi/${process.platform}_${arch}/koffi.node`
+        `/node_modules/koffi/build/koffi/${process.platform}_${arch}/koffi.node`,
+        `/../../bin/Koffi/${process.platform}_${arch}/koffi.node`
     ];
 
     for (let root of roots) {

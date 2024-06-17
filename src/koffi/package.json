@@ -25,25 +25,19 @@
   "main": "./index.js",
   "types": "./index.d.ts",
   "scripts": {
-    "test": "node tools/qemu.js test",
-    "prepack": "echo 'Use \"npm run prepare\" instead' && false",
-    "prepublishOnly": "echo 'Use \"npm run release\" instead' && false",
-    "release": "node tools/qemu.js publish"
+    "test": "node tools/koffi.js test",
+    "prepack": "echo 'Use \"npm run package\" instead' && false",
+    "prepublishOnly": "echo 'Use \"npm run package\" instead' && false",
+    "package": "node tools/koffi.js build"
   },
   "license": "MIT",
   "devDependencies": {
-    "chalk": "^4.1.2",
-    "esbuild": "^0.19.2",
-    "ffi-napi": "^4.0.3",
-    "minimatch": "^5.0.1",
-    "node-ssh": "^12.0.3",
-    "raylib": "^0.14.0",
-    "ref-napi": "^3.0.3",
-    "ref-struct-di": "^1.1.1",
-    "tar": "^6.1.11"
+    "esbuild": "^0.19.2"
   },
   "cnoke": {
-    "output": "build/koffi/{{ platform }}_{{ arch }}",
+    "api": "../../vendor/node-api-headers",
+    "output": "../../bin/Koffi/{{ platform }}_{{ arch }}",
+    "node": 16,
     "napi": 8,
     "require": "./index.js"
   }
