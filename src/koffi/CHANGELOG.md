@@ -4,6 +4,10 @@
 
 ### Koffi 2.8
 
+#### Koffi 2.8.10 (2024-06-17)
+
+- Work around MSVC compiler bug introduced in Visual Studio 17.10
+
 #### Koffi 2.8.9 (2024-05-17)
 
 - Fix ABI issue regarding bool return values on x86_64 (and possibly other platforms)
