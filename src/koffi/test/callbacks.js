@@ -23,7 +23,9 @@
 
 const koffi = require('../../koffi');
 const assert = require('assert');
+const path = require('path');
 const util = require('util');
+const cnoke = require('./CNoke.json');
 
 // We need to change this on Windows because the DLL CRT might
 // not (probably not) match the one used by Node.js!
@@ -79,7 +81,7 @@ async function main() {
 }
 
 async function test() {
-    const lib_filename = __dirname + '/build/callbacks' + koffi.extension;
+    const lib_filename = path.join(__dirname, cnoke.output, 'callbacks' + koffi.extension);
     const lib = koffi.load(lib_filename);
 
     const CallFree = lib.func('void CallFree(void *ptr)');
