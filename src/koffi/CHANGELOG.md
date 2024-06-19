@@ -4,9 +4,13 @@
 
 ### Koffi 2.8
 
-#### Koffi 2.8.10 (2024-06-17)
+#### Koffi 2.8.11 (2024-06-19)
 
 - Work around MSVC compiler bug introduced in Visual Studio 17.10
+
+```{warning}
+Use on platforms without pre-built binaries is broken in Koffi 2.8.10, skip this version.
+```
 
 #### Koffi 2.8.9 (2024-05-17)
 
