@@ -33,6 +33,7 @@ let free_ptr = koffi.free;
 
 const StrFree = koffi.disposable('str_free', koffi.types.str, ptr => free_ptr(ptr));
 const Str16Free = koffi.disposable('str16_free', 'str16', ptr => free_ptr(ptr));
+const WideStrFree = koffi.disposable('wstr_free', 'wchar_t *', ptr => free_ptr(ptr));
 
 const Pack1 = koffi.struct('Pack1', {
     a: 'int'
@@ -212,6 +213,7 @@ async function test() {
                             lib.stdcall(1, koffi.disposable('str', CallFree), ['str']) :
                             lib.func('const char *! __stdcall ReturnBigString(const char *str)');
     const PrintFmt = lib.func('str_free PrintFmt(const char *fmt, ...)');
+    const PrintFmtWide = lib.func('wstr_free PrintFmtWide(const wchar_t *fmt, ...)');
     const Concat16 = lib.func('str16_free Concat16(const char16_t *str1, const char16_t *str2)');
     const Concat16Out1 = lib.func('void Concat16Out(const char16_t *str1, const char16_t *str2, _Out_ const str16_free *)');
     const Concat16Out2 = lib.func('Concat16Out', 'void', [koffi.pointer('char16_t'), koffi.pointer('char16_t'), koffi.out(koffi.pointer(Str16Free))]);
@@ -257,6 +259,7 @@ async function test() {
     const ReverseBigText = lib.func('BigText ReverseBigText(BigText buf)');
     const UpperCaseStrAscii = lib.func('size_t UpperCaseStrAscii(const char *str, _Out_ char *out)');
     const UpperCaseStrAscii16 = lib.func('size_t UpperCaseStrAscii16(const char16_t *str16, _Out_ char16_t *out)');
+    const UpperCaseStrAscii32 = lib.func('size_t UpperCaseStrAscii32(const char32_t *str32, _Out_ char32_t *out)');
     const UpperToInternalBuffer1 = lib.func('void UpperToInternalBuffer(const char *str, _Out_ char **ptr)');
     const UpperToInternalBuffer2 = lib.func('void UpperToInternalBuffer(const char *str, _Out_ uint8_t **ptr)');
     const ChangeDirectory = lib.func('void ChangeDirectory(const char *dirname)');
@@ -281,8 +284,10 @@ async function test() {
     const GetSymbolInt = lib.func('int GetSymbolInt()');
     const GetSymbolStr = lib.func('const char *GetSymbolStr()');
     const GetSymbolInt3 = lib.func('void GetSymbolInt3(_Out_ int *out)');
-    const WriteConfigure = lib.func('void WriteConfigure(char16_t *buf, int size)');
-    const WriteString = lib.func('void WriteString(const char16_t *str)');
+    const WriteConfigure16 = lib.func('void WriteConfigure16(char16_t *buf, int size)');
+    const WriteString16 = lib.func('void WriteString16(const char16_t *str)');
+    const WriteConfigure32 = lib.func('void WriteConfigure32(char32_t *buf, int size)');
+    const WriteString32 = lib.func('void WriteString32(const char32_t *str)');
     const ReturnBool = lib.func('bool ReturnBool(int value)');
 
     free_ptr = CallFree;
@@ -425,6 +430,16 @@ async function test() {
 
         let str = PrintFmt('foo %d %g %s', 'int', 200, 'double', 1.5, 'str', 'BAR');
         assert.equal(str, 'foo 200 1.5 BAR');
+
+        assert.equal(koffi.stats().disposed, disposed + 1);
+    }
+
+    // Variadic with wchar_t!
+    {
+        let disposed = koffi.stats().disposed;
+
+        let str = PrintFmtWide('foo %d %g %s %ls', 'int', 200, 'double', 1.5, 'str', 'BAR', 'wchar_t *', '\u{1F600} ><');
+        assert.equal(str, 'foo 200 1.5 BAR \u{1F600} ><');
 
         assert.equal(koffi.stats().disposed, disposed + 1);
     }
@@ -613,22 +628,32 @@ async function test() {
 
     // Test output string arguments
     {
-        let str = ['\0'.repeat(32)];
+        let str = ['\0'.repeat(128)];
 
-        let len = UpperCaseStrAscii('fooBAR_1x3', str);
+        let len = UpperCaseStrAscii('fooBAR_\u{1F600}+', str);
 
-        assert.equal(len, 10);
-        assert.equal(str[0], 'FOOBAR_1X3');
+        assert.equal(len, 12);
+        assert.equal(str[0], 'FOOBAR_\u{1F600}+');
     }
 
     // Test output string16 arguments
     {
-        let str = ['\0'.repeat(32)];
+        let str = ['\0'.repeat(128)];
 
-        let len = UpperCaseStrAscii16('fooBAR_1x3', str);
+        let len = UpperCaseStrAscii16('fooBAR_\u{1F600}+', str);
 
         assert.equal(len, 10);
-        assert.equal(str[0], 'FOOBAR_1X3');
+        assert.equal(str[0], 'FOOBAR_\u{1F600}+');
+    }
+
+    // Test output string32 arguments
+    {
+        let str = ['\0'.repeat(128)];
+
+        let len = UpperCaseStrAscii32('fooBAR_\u{1F600}+', str);
+
+        assert.equal(len, 9);
+        assert.equal(str[0], 'FOOBAR_\u{1F600}+');
     }
 
     // Do the same but with an internal buffer
@@ -839,17 +864,32 @@ async function test() {
     assert.throws(() => lib.func('void WhoKnows(const char *ptr, int[5] arg)'), /Array types decay to pointers/);
     assert.throws(() => lib.func('void NoBody(const char *ptr, int arg[5])'), /Array types decay to pointers/);
 
-    // Allocate buffer and write in later call
+    // Allocate buffer and write in later call (char16_t variant)
     {
         let ptr = koffi.alloc('char16_t', 9);
 
-        WriteConfigure(ptr, 9);
+        WriteConfigure16(ptr, 9);
 
-        WriteString('Hello');
+        WriteString16('Hello');
         assert.equal(koffi.decode(ptr, 'char16_t', -1), 'Hello');
 
-        WriteString('Hello World!');
+        WriteString16('Hello World!');
         assert.equal(koffi.decode(ptr, 'char16_t', -1), 'Hello Wo');
+
+        koffi.free(ptr);
+    }
+
+    // Allocate buffer and write in later call (char32_t variant)
+    {
+        let ptr = koffi.alloc('char32_t', 8);
+
+        WriteConfigure32(ptr, 8);
+
+        WriteString32('Hello');
+        assert.equal(koffi.decode(ptr, 'char32_t', -1), 'Hello');
+
+        WriteString32('Hello World!');
+        assert.equal(koffi.decode(ptr, 'char32_t', -1), 'Hello W');
 
         koffi.free(ptr);
     }

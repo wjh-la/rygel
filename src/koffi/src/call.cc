@@ -291,7 +291,7 @@ bool CallData::PushString16(Napi::Value value, int directions, const char16_t **
             type->name = "<temporary>";
 
             type->primitive = PrimitiveKind::Array;
-            type->align = 1;
+            type->align = 2;
             type->size = (int32_t)(len * 2);
             type->ref.type = instance->char16_type;
             type->hint = ArrayHint::String;
@@ -347,6 +347,116 @@ Size CallData::PushString16Value(Napi::Value value, const char16_t **out_str16)
 
     *out_str16 = buf.ptr;
     return (Size)len;
+}
+
+bool CallData::PushString32(Napi::Value value, int directions, const char32_t **out_str32)
+{
+    if (value.IsString()) {
+        if (directions & 2) [[unlikely]] {
+            ThrowError<Napi::TypeError>(env, "Unexpected %1 value, expected string", GetValueType(instance, value));
+            return false;
+        }
+
+        PushString32Value(value, out_str32);
+        return true;
+    } else if (IsNullOrUndefined(value)) {
+        *out_str32 = nullptr;
+        return true;
+    }  else if (value.IsArray()) {
+        Napi::Array array = value.As<Napi::Array>();
+
+        if (!(directions & 2)) [[unlikely]] {
+            ThrowError<Napi::TypeError>(env, "Unexpected %1 value, expected string", GetValueType(instance, value));
+            return false;
+        }
+        if (array.Length() != 1) [[unlikely]] {
+            ThrowError<Napi::TypeError>(env, "Unexpected %1 value, expected [string]", GetValueType(instance, value));
+            return false;
+        }
+
+        value = array[0u];
+
+        if (!value.IsString()) [[unlikely]] {
+            ThrowError<Napi::TypeError>(env, "Unexpected %1 value, expected [string]", GetValueType(instance, array[0u]));
+            return false;
+        }
+
+        Size len = PushString32Value(value, out_str32);
+        if (len < 0) [[unlikely]]
+            return false;
+
+        // Create array type
+        TypeInfo *type;
+        {
+            type = AllocateOne<TypeInfo>(&call_alloc, (int)AllocFlag::Zero);
+
+            type->name = "<temporary>";
+
+            type->primitive = PrimitiveKind::Array;
+            type->align = 4;
+            type->size = (int32_t)(len * 4);
+            type->ref.type = instance->char32_type;
+            type->hint = ArrayHint::String;
+        }
+
+        // Prepare output argument
+        {
+            OutArgument *out = out_arguments.AppendDefault();
+
+            napi_status status = napi_create_reference(env, array, 1, &out->ref);
+            RG_ASSERT(status == napi_ok);
+
+            out->kind = OutArgument::Kind::Array;
+            out->ptr = (const uint8_t *)*out_str32;
+            out->type = type;
+        }
+
+        return true;
+    } else {
+        return PushPointer(value, instance->str32_type, directions, (void **)out_str32);
+    }
+}
+
+Size CallData::PushString32Value(Napi::Value value, const char32_t **out_str32)
+{
+    Span<char32_t> buf;
+
+    Span<const char16_t> buf16;
+    buf16.len = PushString16Value(value, &buf16.ptr);
+    if (buf16.len < 0) [[unlikely]]
+        return -1;
+
+    buf.ptr = (char32_t *)mem->heap.ptr;
+    buf.len = std::max((Size)0, mem->heap.len - Kibibytes(32)) / 4;
+
+    if (buf16.len < buf.len) [[likely]] {
+        mem->heap.ptr += buf16.len * 4;
+        mem->heap.len -= buf16.len * 4;
+    } else {
+        buf = AllocateSpan<char32_t>(&call_alloc, buf16.len);
+    }
+
+    Size j = 0;
+    for (Size i = 0; i < buf16.len; i++) {
+        char32_t uc = buf16[i];
+
+        if (uc >= 0xD800 && uc <= 0xDBFF) {
+            char16_t uc2 = buf16.ptr[++i];
+
+            if (uc2 >= 0xDC00 && uc2 <= 0xDFFF) {
+                uc = ((uc - 0xD800) << 10) + (uc2 - 0xDC00) + 0x10000u;
+            } else {
+                uc = '?';
+            }
+        } else if (uc >= 0xDC00 && uc <= 0xDFFF) {
+            uc = '?';
+        }
+
+        buf[j++] = uc;
+    }
+
+    *out_str32 = buf.ptr;
+    return j;
 }
 
 bool CallData::PushObject(Napi::Object obj, const TypeInfo *type, uint8_t *origin)
@@ -567,6 +677,13 @@ bool CallData::PushObject(Napi::Object obj, const TypeInfo *type, uint8_t *origi
                     return false;
 
                 *(const char16_t **)dest = str16;
+            } break;
+            case PrimitiveKind::String32: {
+                const char32_t *str32;
+                if (!PushString32(value, 1, &str32)) [[unlikely]]
+                    return false;
+
+                *(const char32_t **)dest = str32;
             } break;
             case PrimitiveKind::Pointer: {
                 void *ptr;
@@ -797,6 +914,15 @@ bool CallData::PushNormalArray(Napi::Array array, Size len, const TypeInfo *type
                 *(const char16_t **)dest = str16;
             });
         } break;
+        case PrimitiveKind::String32: {
+            PUSH_ARRAY(true, "string", {
+                const char32_t *str32;
+                if (!PushString32(value, 1, &str32)) [[unlikely]]
+                    return false;
+
+                *(const char32_t **)dest = str32;
+            });
+        } break;
         case PrimitiveKind::Pointer: {
             PUSH_ARRAY(true, ref->name, {
                 void *ptr;
@@ -977,7 +1103,8 @@ bool CallData::PushPointer(Napi::Value value, const TypeInfo *type, int directio
         case napi_external: {
             RG_ASSERT(type->primitive == PrimitiveKind::Pointer ||
                       type->primitive == PrimitiveKind::String ||
-                      type->primitive == PrimitiveKind::String16);
+                      type->primitive == PrimitiveKind::String16 ||
+                      type->primitive == PrimitiveKind::String32);
 
             if (!CheckValueTag(instance, value, type->ref.marker) &&
                     !CheckValueTag(instance, value, instance->void_type) &&
@@ -1004,7 +1131,11 @@ bool CallData::PushPointer(Napi::Value value, const TypeInfo *type, int directio
                         return false;
                     }
 
-                    out_kind = (type->ref.type->size == 2) ? OutArgument::Kind::String16 : OutArgument::Kind::String;
+                    switch (type->ref.type->size) {
+                        default: { out_kind = OutArgument::Kind::String; } break;
+                        case 2: { out_kind = OutArgument::Kind::String16; } break;
+                        case 4: { out_kind = OutArgument::Kind::String32; } break;
+                    }
                     out_max_len = len;
                 } else {
                     if (!type->ref.type->size) [[unlikely]] {
@@ -1091,6 +1222,9 @@ bool CallData::PushPointer(Napi::Value value, const TypeInfo *type, int directio
             } else if (type->ref.type->primitive == PrimitiveKind::Int16) {
                 PushString16Value(value, (const char16_t **)out_ptr);
                 return true;
+            } else if (type->ref.type->primitive == PrimitiveKind::Int32) {
+                PushString32Value(value, (const char32_t **)out_ptr);
+                return true;
             } else {
                 goto unexpected;
             }
@@ -1154,6 +1288,8 @@ Size CallData::PushIndirectString(Napi::Array array, const TypeInfo *ref, uint8_
         return PushStringValue(value, (const char **)out_ptr);
     } else if (ref->primitive == PrimitiveKind::Int16) {
         return PushString16Value(value, (const char16_t **)out_ptr);
+    } else if (ref->primitive == PrimitiveKind::Int32) {
+        return PushString32Value(value, (const char32_t **)out_ptr);
     } else {
         return -1;
     }
@@ -1265,6 +1401,18 @@ void CallData::PopOutArguments()
 
                 Size len = NullTerminatedLength((const char16_t *)out.ptr, out.max_len);
                 Napi::String str = Napi::String::New(env, (const char16_t *)out.ptr, len);
+
+                array.Set(0u, str);
+            } break;
+
+            case OutArgument::Kind::String32: {
+                Napi::Array array(env, value);
+
+                RG_ASSERT(array.IsArray());
+                RG_ASSERT(array.Length() == 1);
+
+                Size len = NullTerminatedLength((const char32_t *)out.ptr, out.max_len);
+                Napi::String str = MakeStringFromUTF32(env, (const char32_t *)out.ptr, len);
 
                 array.Set(0u, str);
             } break;
