@@ -305,7 +305,7 @@
         }
     },
 
-    "macos_x64": {
+    "darwin_x64": {
         "title": "macOS x64",
 
         "info": {
@@ -327,7 +327,7 @@
         }
     },
 
-    "macos_arm64": {
+    "darwin_arm64": {
         "title": "macOS ARM64",
 
         "info": {
@@ -335,6 +335,52 @@
             "machine": "macos_x64",
             "directory": "/Users/macos/luigi_arm64",
             "build": "PATH=/usr/local/bin:/usr/bin:/bin SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX11.3.sdk node ../cnoke/cnoke.js -a arm64"
+        }
+    },
+
+    "musl_x64": {
+        "title": "Linux (musl) x64",
+
+        "info": {
+            "arch": "x64",
+            "machine": "alpine_x64",
+            "directory": "/home/alpine/luigi",
+            "build": "node ../cnoke/cnoke.js"
+        },
+
+        "test": {
+            "build": "node ../cnoke/cnoke.js -d test",
+            "commands": {
+                "Test Sync": "node test/sync.js",
+                "Test Union": "node test/union.js",
+                "Test Async": "node test/async.js",
+                "Test Callbacks": "node test/callbacks.js",
+                "Test Raylib": "xvfb-run node test/raylib.js",
+                "Test SQLite": "node test/sqlite.js"
+            }
+        }
+    },
+
+    "musl_arm64": {
+        "title": "Linux (musl) ARM64",
+
+        "info": {
+            "arch": "arm64",
+            "machine": "alpine_arm64",
+            "directory": "/home/alpine/luigi",
+            "build": "node ../cnoke/cnoke.js"
+        },
+
+        "test": {
+            "build": "node ../cnoke/cnoke.js -d test",
+            "commands": {
+                "Test Sync": "node test/sync.js",
+                "Test Union": "node test/union.js",
+                "Test Async": "node test/async.js",
+                "Test Callbacks": "node test/callbacks.js",
+                "Test Raylib": "xvfb-run node test/raylib.js",
+                "Test SQLite": "node test/sqlite.js"
+            }
         }
     }
 }
