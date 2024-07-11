@@ -353,7 +353,7 @@ async function compile(debug = false) {
     await Promise.all(builds.map(async build => {
         let machine = runner.machine(build.info.machine);
 
-        if (ignore_builds.has(machine))
+        if (ignore_builds.has(build))
             return;
         if (runner.isIgnored(machine))
             return;
@@ -455,6 +455,11 @@ async function test(debug = false) {
 
     let success = true;
 
+    for (let build of builds) {
+        if (build.test == null)
+            ignore_builds.add(build);
+    }
+
     success &= await runner.start();
     success &= await upload(snapshot_dir);
 
@@ -467,9 +472,6 @@ async function test(debug = false) {
 
     console.log('>> Run test commands...');
     await Promise.all(builds.map(async build => {
-        if (build.test == null)
-            return;
-
         let machine = runner.machine(build.info.machine);
 
         if (ignore_builds.has(build))
@@ -510,9 +512,6 @@ async function test(debug = false) {
 
     if (success) {
         console.log('>> Status: ' + style_ansi('SUCCESS', 'green bold'));
-
-        if (ignore_builds.size)
-            console.log('   (but some tests could not be performed)');
     } else {
         console.log('>> Status: ' + style_ansi('FAILED', 'red bold'));
     }
