@@ -435,7 +435,7 @@ async function test() {
     }
 
     // Variadic with wchar_t!
-    {
+    if (detect_glibc() || process.platform == 'win32') {
         let disposed = koffi.stats().disposed;
 
         let fmt = (process.platform == 'win32') ? 'foo %d %g %S %s' : 'foo %d %g %s %ls';
@@ -908,4 +908,13 @@ async function test() {
     assert.equal(ReturnBool(0xFFFFFE), true);
 
     lib.unload();
+}
+
+function detect_glibc() {
+    if (process.platform != 'linux')
+        return false;
+    if (process.report.getReport().header?.glibcVersionRuntime == null)
+        return false;
+
+    return true;
 }
