@@ -438,7 +438,8 @@ async function test() {
     {
         let disposed = koffi.stats().disposed;
 
-        let str = PrintFmtWide('foo %d %g %s %ls', 'int', 200, 'double', 1.5, 'str', 'BAR', 'wchar_t *', '\u{1F600} ><');
+        let fmt = (process.platform == 'win32') ? 'foo %d %g %S %s' : 'foo %d %g %s %ls';
+        let str = PrintFmtWide(fmt, 'int', 200, 'double', 1.5, 'str', 'BAR', 'wchar_t *', '\u{1F600} ><');
         assert.equal(str, 'foo 200 1.5 BAR \u{1F600} ><');
 
         assert.equal(koffi.stats().disposed, disposed + 1);
