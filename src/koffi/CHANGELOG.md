@@ -2,6 +2,13 @@
 
 ## Version history
 
+### Koffi 2.9
+
+#### Koffi 2.9.0-beta.1 (2024-07-11)
+
+- Add support for char32_t and wchar_t (wide) strings
+- Include Linux/musl x64 prebuild (based on Alpine)
+
 ### Koffi 2.8
 
 #### Koffi 2.8.11 (2024-06-19)

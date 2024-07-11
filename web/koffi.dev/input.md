@@ -387,11 +387,17 @@ The short C-like syntax was introduced in Koffi 2.7.1, use `koffi.array()` for o
 
 ### Fixed-size string buffers
 
+*Changed in Koffi 2.9.0*
+
 Koffi can also convert JS strings to fixed-sized arrays in the following cases:
 
 - **char arrays** are filled with the UTF-8 encoded string, truncated if needed. The buffer is always NUL-terminated.
 - **char16 (or char16_t) arrays** are filled with the UTF-16 encoded string, truncated if needed. The buffer is always NUL-terminated.
 - **char32 (or char32_t) arrays** are filled with the UTF-32 encoded string, truncated if needed. The buffer is always NUL-terminated.
+
+```{note}
+Support for UTF-32 and wchar_t (wide) strings was introduced in Koffi 2.9.0.
+```
 
 The reverse case is also true, Koffi can convert a C fixed-size buffer to a JS string. This happens by default for char, char16_t and char32_t arrays, but you can also explicitly ask for this with the `String` array hint (e.g. `koffi.array('char', 8, 'String')`).
 
