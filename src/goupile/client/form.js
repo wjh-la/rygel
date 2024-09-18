@@ -285,7 +285,7 @@ function FormBuilder(state, model) {
         let value = readValue(key, options, value => (value != null) ? String(value) : undefined);
 
         let render = (intf, id) => renderWrappedWidget(intf, html`
-            ${makeLabel(intf)}
+            ${makeLabel(intf, options.vocal ? html`(<a @click=${UI.wrap(e => handleVocalClick(e, key, value))}>dicter</a>)` : '')}
             <textarea id=${id} class="fm_input" style=${makeInputStyle(options)}
                    rows=${options.rows || 3} cols=${options.cols || 30}
                    placeholder=${options.placeholder || ''}
@@ -300,6 +300,93 @@ function FormBuilder(state, model) {
 
         return intf;
     };
+
+    async function handleVocalClick(e, key, value) {
+        if (!isModifiable(key))
+            return;
+
+        if (typeof loadVosklet === 'undefined')
+            await Net.loadScript(`${ENV.urls.static}vosklet/Vosklet.min.js`);
+
+        let vosklet = null;
+        let stream = null;
+
+        try {
+            let ctx = new AudioContext({ sinkId: { type: 'none' } });
+
+            vosklet = await loadVosklet();
+
+            let url = `${ENV.urls.static}vosklet/vosk-model-small-fr-pguyot-0.3.tar`;
+            let model = await vosklet.createModel(url, 'model', 'vosk-model-small-fr-pguyot-0.3');
+
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: false,
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    channelCount: 1
+                }
+            });
+
+            let microphone = ctx.createMediaStreamSource(stream);
+            let recognizer = await vosklet.createRecognizer(model, ctx.sampleRate);
+            let transferer = await vosklet.createTransferer(ctx, 128 * 150);
+            transferer.port.onmessage = ev => recognizer.acceptWaveform(ev.data);
+
+            let textarea = document.createElement('textarea');
+            textarea.className = 'fm_input';
+            textarea.setAttribute('style', 'width: 400px;');
+            textarea.setAttribute('readonly', true);
+            textarea.rows = 12;
+
+            let text = value ?? '';
+            let lines = null;
+
+            await UI.dialog(e, null, {}, (d, resolve, reject) => {
+                if (lines == null) {
+                    lines = text.split('\n');
+                    lines.push('');
+
+                    recognizer.addEventListener('partialResult', ev => {
+                        lines[lines.length - 1] = JSON.parse(ev.detail).partial;
+                        refresh();
+                    });
+                    recognizer.addEventListener('result', ev => {
+                        lines[lines.length - 1] = JSON.parse(ev.detail).text;
+                        lines.push('');
+
+                        refresh();
+                    });
+
+                    microphone.connect(transferer);
+                }
+
+                d.output(html`
+                    <div class="fm_wrap">
+                        <div class="fm_widget">${textarea}</div>
+                    </div>
+                `);
+
+                d.action('Accepter', {}, () => {
+                    updateValue(key, text);
+                    resolve(text);
+                });
+
+                function refresh() {
+                    text = lines.join('\n').trim();
+                    textarea.value = text;
+                }
+            });
+        } finally {
+            if (stream != null) {
+                for (let track of stream.getTracks())
+                    track.stop();
+            }
+
+            if (vosklet != null)
+                vosklet.cleanUp();
+        }
+    }
 
     this.password = function(key, label, options = {}) {
         options = expandOptions(options);
@@ -2011,7 +2098,7 @@ instead of:
         }
     }
 
-    function makeLabel(intf) {
+    function makeLabel(intf, extra = null) {
         if (intf.label == null)
             return '';
 
@@ -2022,6 +2109,7 @@ instead of:
                 <label for=${intf.id}>
                     ${intf.label}
                     ${intf.options.annotate ? html`<span style="font-weight: normal;">(<a @click=${e => annotate(e, intf)}>commenter</a>)</span>` : ''}
+                    ${extra != null ? html`<span style="font-weight: normal;">${extra}</span>` : ''}
                 </label>
 
                 ${tags.length ? html`
@@ -2029,6 +2117,7 @@ instead of:
                         ${tags.map(tag => html` <span class="ui_tag" style=${'background: ' + tag.color + ';'}>${tag.label}</span>`)}
                     </div>
                 ` : ''}
+
             </div>
         `;
     }
