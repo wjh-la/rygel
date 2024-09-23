@@ -4,6 +4,12 @@
 
 ### Koffi 2.9
 
+#### Koffi 2.9.1 (2024-09-23)
+
+- Fix x86 32-bit support regression in 2.9.0
+- Add missing TS definition for `koffi.alloc()`
+- Support `koffi.load(null)` in TS definition file
+
 #### Koffi 2.9.0 (2024-07-22)
 
 - Add support for char32_t and wchar_t (wide) strings
