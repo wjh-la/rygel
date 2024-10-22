@@ -15,7 +15,7 @@ In Koffi 1.x, callbacks were defined in a way that made them usable directly as 
 Given the following C code:
 
 ```c
-include <string.h>
+#include <string.h>
 
 int TransferToJS(const char *name, int age, int (*cb)(const char *str, int age))
 {
