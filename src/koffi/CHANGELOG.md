@@ -1,6 +1,9 @@
-# Changelog
+# Version history
 
-## Version history
+> [!NOTE]
+> Consult the [migration guide](migration) to migrate between major Koffi versions.
+
+## Koffi 2
 
 ### Koffi 2.9
 
@@ -536,6 +539,8 @@ Use on platforms without pre-built binaries is broken in Koffi 2.8.10, skip this
 
 Consult the [migration guide](migration) for more information.
 
+## Koffi 1
+
 ### Koffi 1.3
 
 #### Koffi 1.3.12 (2022-07-27)
@@ -686,7 +691,7 @@ This entry documents changes since version 1.1.0.
 - Make sure we have a redzone below the stack for all architectures
 - Use slower allocation for big objects instead of failing
 
-## Todo list
+# Todo list
 
 The following features and improvements are planned, not necessarily in that order:
 
