@@ -39,7 +39,7 @@ Use on platforms without pre-built binaries is broken in Koffi 2.8.10, skip this
 
 #### Koffi 2.8.6 (2024-04-12)
 
-- Support [loading library](functions.md#loading-options) with RTLD_DEEPBIND where supported
+- Support [loading library](functions#loading-options) with RTLD_DEEPBIND where supported
 
 #### Koffi 2.8.5 (2024-04-11)
 
@@ -57,7 +57,7 @@ Some pre-built binaries are missing in Koffi 2.8.3, skip this version.
 
 #### Koffi 2.8.2 (2024-04-07)
 
-- Support [loading library](functions.md#loading-options) with RTLD_GLOBAL on POSIX platforms
+- Support [loading library](functions#loading-options) with RTLD_GLOBAL on POSIX platforms
 
 #### Koffi 2.8.1 (2024-04-04)
 
@@ -66,7 +66,7 @@ Some pre-built binaries are missing in Koffi 2.8.3, skip this version.
 #### Koffi 2.8.0 (2024-02-12)
 
 - Support pushing pointers for string arguments
-- Add `koffi.alloc()` for [stable pointers](output.md#stable-pointers)
+- Add `koffi.alloc()` for [stable pointers](output#stable-pointers)
 
 ### Koffi 2.7
 
@@ -89,13 +89,13 @@ Some pre-built binaries are missing in Koffi 2.8.3, skip this version.
 
 #### Koffi 2.7.1 (2024-01-02)
 
-- Support C-like `int[3]` syntax for [fixed array types](input.md#fixed-size-c-arrays)
+- Support C-like `int[3]` syntax for [fixed array types](input#fixed-size-c-arrays)
 - Refuse type specifiers with invalid tokens at the end (previously ignored)
 
 #### Koffi 2.7.0 (2023-12-21)
 
-- Support alternative [callback calling convention](callbacks.md#callback-types) in classic syntax
-- Change syntax for [calling conventions](functions.md#calling-conventions) with classic syntax
+- Support alternative [callback calling convention](callbacks#callback-types) in classic syntax
+- Change syntax for [calling conventions](functions#calling-conventions) with classic syntax
 - Drop unused "internal" property from Koffi
 
 ### Koffi 2.6
@@ -107,7 +107,7 @@ Some pre-built binaries are missing in Koffi 2.8.3, skip this version.
 #### Koffi 2.6.11 (2023-12-05)
 
 - Speed up resolving simple and often used type names
-- Fix use of optional length argument with [koffi.encode()](variables.md#encode-to-c-memory)
+- Fix use of optional length argument with [koffi.encode()](variables#encode-to-c-memory)
 
 #### Koffi 2.6.10 (2023-11-29)
 
@@ -154,9 +154,9 @@ Pre-built binaries don't work correctly in Koffi 2.6.2, skip this version.
 
 **New features:**
 
-- Use [koffi.symbol()](variables.md#variable-definitions) to make pointers to exported variables (or other symbols)
-- Use [koffi.encode()](variables.md#encode-to-c-memory) to explictly encode data from JS to C memory
-- Use shared library [lazy-loading](functions.md#loading-options) (RTLD_LAZY) on POSIX platforms
+- Use [koffi.symbol()](variables#variable-definitions) to make pointers to exported variables (or other symbols)
+- Use [koffi.encode()](variables#encode-to-c-memory) to explictly encode data from JS to C memory
+- Use shared library [lazy-loading](functions#loading-options) (RTLD_LAZY) on POSIX platforms
 
 **Other changes:**
 
@@ -173,7 +173,7 @@ Pre-built binaries don't work correctly in Koffi 2.6.2, skip this version.
 #### Koffi 2.5.19 (2023-08-29)
 
 - Create thread-safe function broker lazily
-- Add [koffi.reset()](misc.md#reset-internal-state) for type names and async broker
+- Add [koffi.reset()](misc#reset-internal-state) for type names and async broker
 
 #### Koffi 2.5.18 (2023-08-27)
 
@@ -196,7 +196,7 @@ Pre-built binaries don't work correctly in Koffi 2.5.13 to 2.5.15, skip those ve
 
 #### Koffi 2.5.11 (2023-08-03)
 
-- Support casting function pointers with [koffi.as()](pointers.md#handling-void-pointers)
+- Support casting function pointers with [koffi.as()](pointers#handling-void-pointers)
 - Build in C++20 mode
 
 #### Koffi 2.5.10 (2023-08-01)
@@ -218,7 +218,7 @@ Pre-built binaries don't work correctly in Koffi 2.5.13 to 2.5.15, skip those ve
 #### Koffi 2.5.8 (2023-07-26)
 
 - Add more search paths for native Koffi modules
-- Add section [about bundling](start.md#bundling-koffi) to documentation
+- Add section [about bundling](start#bundling-koffi) to documentation
 
 #### Koffi 2.5.7 (2023-07-19)
 
@@ -255,7 +255,7 @@ Pre-built binaries don't work correctly in Koffi 2.5.13 to 2.5.15, skip those ve
 
 **New features:**
 
-- Support [union types](unions.md)
+- Support [union types](unions)
 
 **Other fixes:**
 
@@ -273,8 +273,8 @@ Pre-built binaries don't work correctly in Koffi 2.5.13 to 2.5.15, skip those ve
 
 **Main changes:**
 
-- Support [decoding function pointers](functions.md#decode-pointer-to-function) to callable functions
-- Support calling function pointers with [koffi.call()](functions.md#call-pointer-directly)
+- Support [decoding function pointers](functions#decode-pointer-to-function) to callable functions
+- Support calling function pointers with [koffi.call()](functions#call-pointer-directly)
 - Deprecate `koffi.callback` in favor of `koffi.proto`
 
 **Other changes:**
@@ -384,9 +384,9 @@ Pre-built binaries don't work correctly in Koffi 2.5.13 to 2.5.15, skip those ve
 
 **Main changes:**
 
-- Fix type parser issues (such as ignoring some [disposable qualifiers](pointers.md#disposable-types))
+- Fix type parser issues (such as ignoring some [disposable qualifiers](pointers#disposable-types))
 - Fix crash when using disposable types in output parameters
-- Add basic [koffi.stats()](misc.md#usage-statistics) interface
+- Add basic [koffi.stats()](misc#usage-statistics) interface
 
 **Other changes:**
 
@@ -404,8 +404,8 @@ Pre-built binaries don't work correctly in Koffi 2.5.13 to 2.5.15, skip those ve
 **Main changes:**
 
 - Allow buffers (TypedArray or ArrayBuffer) values for input and/or output pointer arguments (for polymorphic arguments)
-- Support opaque buffers (TypedArray or ArrayBuffer) values in `koffi.decode()` to [decode output buffers](output.md#output-buffers)
-- Decode non-string types as arrays when an [explicit length is passed to koffi.decode()](callbacks.md#decoding-pointer-arguments)
+- Support opaque buffers (TypedArray or ArrayBuffer) values in `koffi.decode()` to [decode output buffers](output#output-buffers)
+- Decode non-string types as arrays when an [explicit length is passed to koffi.decode()](callbacks#decoding-pointer-arguments)
 
 **Other changes:**
 
@@ -436,7 +436,7 @@ Pre-built binaries don't work correctly in Koffi 2.5.13 to 2.5.15, skip those ve
 
 **Main fixes:**
 
-- Support transparent [asynchronous callbacks](callbacks.md#asynchronous-callbacks)
+- Support transparent [asynchronous callbacks](callbacks#asynchronous-callbacks)
 - Expand from a maximum of 16+16 to 1024 callbacks running in parallel
 
 **Other fixes:**
@@ -454,8 +454,8 @@ Pre-built binaries don't work correctly in Koffi 2.5.13 to 2.5.15, skip those ve
 
 **New features:**
 
-- Add [koffi.decode()](callbacks.md#decoding-pointer-arguments) for callback pointer arguments
-- Support transparent [output string parameters](output.md#string-buffer-example)
+- Add [koffi.decode()](callbacks#decoding-pointer-arguments) for callback pointer arguments
+- Support transparent [output string parameters](output#string-buffer-example)
 - Add `koffi.offsetof()` utility function
 - Support optional *this* binding in `koffi.register()`
 
@@ -468,7 +468,7 @@ Pre-built binaries don't work correctly in Koffi 2.5.13 to 2.5.15, skip those ve
 
 #### Koffi 2.1.5 (2022-11-27)
 
-- Add missing README.md file to NPM package
+- Add missing README file to NPM package
 
 #### Koffi 2.1.4 (2022-11-25)
 
@@ -497,8 +497,8 @@ Pre-built binaries don't work correctly in Koffi 2.5.13 to 2.5.15, skip those ve
 
 **Main changes:**
 
-- Add [koffi.as()](pointers.md#handling-void-pointers) to support polymorphic APIs based on `void *` parameters
-- Add [endian-sensitive integer types](input.md#endian-sensitive-integers): `intX_le_t`, `intX_be_t`, `uintX_le_t`, `uintX_be_t`
+- Add [koffi.as()](pointers#handling-void-pointers) to support polymorphic APIs based on `void *` parameters
+- Add [endian-sensitive integer types](input#endian-sensitive-integers): `intX_le_t`, `intX_be_t`, `uintX_le_t`, `uintX_be_t`
 - Accept typed arrays for `void *` parameters
 - Introduce `koffi.opaque()` to replace `koffi.handle()` (which remains supported until Koffi 3.0)
 - Support JS Array and TypedArray to fill struct and array pointer members
@@ -521,8 +521,8 @@ Pre-built binaries don't work correctly in Koffi 2.5.13 to 2.5.15, skip those ve
 
 **Major new features:**
 
-- Add [disposable types](pointers.md#disposable-types) for automatic disposal of C values (such as heap-allocated strings)
-- Add support for [registered callbacks](callbacks.md#registered-callbacks), that can be called after the initial FFI call
+- Add [disposable types](pointers#disposable-types) for automatic disposal of C values (such as heap-allocated strings)
+- Add support for [registered callbacks](callbacks#registered-callbacks), that can be called after the initial FFI call
 - Support named pointer types
 - Support complex type specifications outside of prototype parser
 
@@ -539,7 +539,7 @@ Pre-built binaries don't work correctly in Koffi 2.5.13 to 2.5.15, skip those ve
 - Change handling of opaque handles, which must be used through pointers
 - Support all types in `koffi.introspect(type)`
 
-Consult the [migration guide](migration.md) for more information.
+Consult the [migration guide](migration) for more information.
 
 ### Koffi 1.3
 
