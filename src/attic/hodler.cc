@@ -31,14 +31,15 @@ struct FileHash {
 };
 
 struct AssetCopy {
-    const char *dest_directory;
-    const char *src_directory;
+    const char *dest_filename;
+    const char *src_filename;
     HeapArray<const char *> ignore;
 };
 
 struct AssetBundle {
     const char *name;
     const char *dest_filename;
+    const char *gzip_filename;
     const char *src_filename;
     const char *options;
 };
@@ -72,7 +73,7 @@ struct PageData {
 
 static int32_t DecodeUtf8Unsafe(const char *str);
 
-static const HashMap<int32_t, const char *> replacements = {
+static HashMap<int32_t, const char *> replacements = {
     { DecodeUtf8Unsafe("Ç"), "c" },
     { DecodeUtf8Unsafe("È"), "e" },
     { DecodeUtf8Unsafe("É"), "e" },
@@ -133,10 +134,10 @@ static const char *SectionToPageName(Span<const char> section, Allocator *alloc)
 {
     Span<const char> basename = SplitStrReverseAny(section, RG_PATH_SEPARATORS);
 
-    // Strip extension
-    SplitStrReverse(basename, '.', &basename);
+    Span<const char> simple;
+    SplitStrReverse(basename, '.', &simple);
 
-    const char *name = DuplicateString(basename, alloc).ptr;
+    const char *name = DuplicateString(simple.len ? simple : basename, alloc).ptr;
     return name;
 }
 
@@ -145,8 +146,10 @@ static const char *TextToID(Span<const char> text, char replace_char, Allocator 
     Span<char> id = AllocateSpan<char>(alloc, text.len + 1);
 
     Size offset = 0;
-    Size len = 0;
     bool skip_special = false;
+
+    // Reset length
+    id.len = 0;
 
     while (offset < text.len) {
         int32_t uc;
@@ -154,10 +157,10 @@ static const char *TextToID(Span<const char> text, char replace_char, Allocator 
 
         if (bytes == 1) {
             if (IsAsciiAlphaOrDigit((char)uc)) {
-                id[len++] = LowerAscii((char)uc);
+                id[id.len++] = LowerAscii((char)uc);
                 skip_special = false;
             } else if (!skip_special) {
-                id[len++] = replace_char;
+                id[id.len++] = replace_char;
                 skip_special = true;
             }
         } else if (bytes > 1) {
@@ -170,8 +173,8 @@ static const char *TextToID(Span<const char> text, char replace_char, Allocator 
                 ptr = text.ptr + offset;
             }
 
-            memcpy_safe(id.ptr + len, ptr, (size_t)expand);
-            len += expand;
+            memcpy_safe(id.end(), ptr, expand);
+            id.len += expand;
 
             skip_special = false;
         } else {
@@ -182,22 +185,25 @@ static const char *TextToID(Span<const char> text, char replace_char, Allocator 
         offset += bytes;
     }
 
-    while (len > 1 && id[len - 1] == replace_char) {
-        len--;
-    }
-    if (!len)
+    char trim[2] = { replace_char, 0 };
+
+    id = TrimStr(id, trim);
+    if (!id.len)
         return nullptr;
 
-    id.ptr[len] = 0;
+    id.ptr[id.len] = 0;
 
     return id.ptr;
 }
 
-static const char *FindEsbuild(const char *path, Allocator *alloc)
+static const char *FindEsbuild(const char *path, [[maybe_unused]] Allocator *alloc)
 {
-    if (!path) {
+    // Try environment first
+    {
         const char *str = getenv("ESBUILD_PATH");
-        path = (str && str[0]) ? str : ".";
+
+        if (str && str[0])
+            return str;
     }
 
     FileInfo file_info;
@@ -237,18 +243,18 @@ missing:
     return nullptr;
 }
 
-static bool BundleScript(const AssetBundle &bundle, const char *esbuild_binary, uint8_t out_hash[32])
+static bool BundleScript(const AssetBundle &bundle, const char *esbuild_binary, uint8_t out_hash[32], bool gzip)
 {
     char cmd[4096];
 
     // Prepare command
     if (bundle.options) {
         Fmt(cmd, "\"%1\" \"%2\" --bundle --log-level=warning --allow-overwrite --outfile=\"%3\""
-                 "  --minify --platform=browser %4",
+                 "  --minify --platform=browser --target=es6 --sourcemap=linked %4",
             esbuild_binary, bundle.src_filename, bundle.dest_filename, bundle.options);
     } else {
         Fmt(cmd, "\"%1\" \"%2\" --bundle --log-level=warning --allow-overwrite --outfile=\"%3\""
-                 "  --minify --platform=browser",
+                 "  --minify --platform=browser --target=es6 --sourcemap=linked",
             esbuild_binary, bundle.src_filename, bundle.dest_filename);
     }
 
@@ -268,10 +274,10 @@ static bool BundleScript(const AssetBundle &bundle, const char *esbuild_binary, 
         }
     }
 
+    StreamReader reader(bundle.dest_filename);
+
     // Compute destination hash
     {
-        StreamReader reader(bundle.dest_filename);
-
         crypto_hash_sha256_state state;
         crypto_hash_sha256_init(&state);
 
@@ -285,6 +291,20 @@ static bool BundleScript(const AssetBundle &bundle, const char *esbuild_binary, 
         } while (!reader.IsEOF());
 
         crypto_hash_sha256_final(&state, out_hash);
+    }
+
+    // Precompress file
+    if (gzip) {
+        reader.Rewind();
+
+        StreamWriter writer(bundle.gzip_filename, (int)StreamWriterFlag::Atomic, CompressionType::Gzip);
+
+        if (!SpliceStream(&reader, -1, &writer))
+            return false;
+        if (!writer.Close())
+            return false;
+    } else {
+        UnlinkFile(bundle.gzip_filename);
     }
 
     return true;
@@ -312,7 +332,7 @@ static bool RenderMarkdown(PageData *page, const AssetSet &assets, Allocator *al
     cmark_gfm_core_extensions_ensure_registered();
 
     // Prepare markdown parser
-    cmark_parser *parser = cmark_parser_new(CMARK_OPT_DEFAULT);
+    cmark_parser *parser = cmark_parser_new(CMARK_OPT_DEFAULT | CMARK_OPT_FOOTNOTES);
     RG_DEFER { cmark_parser_free(parser); };
 
     // Enable syntax extensions
@@ -391,6 +411,7 @@ static bool RenderMarkdown(PageData *page, const AssetSet &assets, Allocator *al
                     PageSection sec = {};
 
                     const char *literal = cmark_node_get_literal(child);
+                    RG_ASSERT(literal);
 
                     Span<const char> toc;
                     Span<const char> title = SplitStr(literal, '^', &toc);
@@ -418,6 +439,64 @@ static bool RenderMarkdown(PageData *page, const AssetSet &assets, Allocator *al
                         cmark_node_set_literal(frag, Fmt(alloc, "<a id=\"%1\"></a>", sec.id).ptr);
                     }
                     cmark_node_prepend_child(node, frag);
+                }
+            }
+
+            // Support GitHub-like alerts
+            if (event == CMARK_EVENT_EXIT && type == CMARK_NODE_BLOCK_QUOTE) {
+                cmark_node *child = cmark_node_first_child(node);
+                cmark_node *text = child;
+
+                if (cmark_node_get_type(text) == CMARK_NODE_PARAGRAPH) {
+                    text = cmark_node_first_child(text);
+                }
+
+                if (cmark_node_get_type(text) == CMARK_NODE_TEXT) {
+                    const char *literal = cmark_node_get_literal(text);
+                    RG_ASSERT(literal);
+
+                    const char *cls = nullptr;
+
+                    if (TestStr(literal, "[!NOTE]")) {
+                        cls = "note";
+                    } else if (TestStr(literal, "[!TIP]")) {
+                        cls = "tip";
+                    } else if (TestStr(literal, "[!IMPORTANT]")) {
+                        cls = "important";
+                    } else if (TestStr(literal, "[!WARNING]")) {
+                        cls = "warning";
+                    } else if (TestStr(literal, "[!CAUTION]")) {
+                        cls = "caution";
+                    }
+
+                    if (cls) {
+                        RG_DEFER {
+                            cmark_node_free(node);
+                            cmark_node_free(text);
+                        };
+
+                        const char *tag = Fmt(alloc, "<div class=\"alert %1\">", cls).ptr;
+
+                        cmark_node *block = cmark_node_new(CMARK_NODE_CUSTOM_BLOCK);
+                        cmark_node *title = cmark_node_new(CMARK_NODE_HTML_INLINE);
+
+                        cmark_node_set_on_enter(block, tag);
+                        cmark_node_set_on_exit(block, "</div>");
+                        cmark_node_set_literal(title, "<div class=\"title\"></div>");
+
+                        cmark_node_replace(node, block);
+
+                        cmark_node_append_child(block, title);
+
+                        do {
+                            cmark_node *next = cmark_node_next(child);
+
+                            cmark_node_unlink(child);
+                            cmark_node_append_child(block, child);
+
+                            child = next;
+                        } while (child);
+                    }
                 }
             }
         }
@@ -579,7 +658,19 @@ static bool SpliceWithChecksum(StreamReader *reader, StreamWriter *writer, uint8
 static bool ShouldCompressFile(const char *filename)
 {
     const char *mimetype = GetMimeType(GetPathExtension(filename));
-    return StartsWith(mimetype, "text/");
+
+    if (StartsWith(mimetype, "text/"))
+        return true;
+    if (TestStr(mimetype, "application/javascript"))
+        return true;
+    if (TestStr(mimetype, "application/json"))
+        return true;
+    if (TestStr(mimetype, "application/xml"))
+        return true;
+    if (TestStr(mimetype, "image/svg+xml"))
+        return true;
+
+    return false;
 }
 
 static bool BuildAll(Span<const char> source_dir, UrlFormat urls, const char *output_dir, bool gzip)
@@ -589,8 +680,6 @@ static bool BuildAll(Span<const char> source_dir, UrlFormat urls, const char *ou
     // Output directory
     if (!MakeDirectory(output_dir, false))
         return false;
-    LogInfo("Source directory: %!..+%1%!0", source_dir);
-    LogInfo("Output directory: %!..+%1%!0", output_dir);
 
     const char *pages_filename = Fmt(&temp_alloc, "%1%/pages.ini", source_dir).ptr;
     const char *assets_filename = Fmt(&temp_alloc, "%1%/assets.ini", source_dir).ptr;
@@ -622,7 +711,9 @@ static bool BuildAll(Span<const char> source_dir, UrlFormat urls, const char *ou
             page.description = "";
 
             do {
-                if (prop.key == "Title") {
+                if (prop.key == "SourceFile") {
+                    page.src_filename = NormalizePath(prop.value, source_dir, &temp_alloc).ptr;
+                } else if (prop.key == "Title") {
                     page.title = DuplicateString(prop.value, &temp_alloc).ptr;
                 } else if (prop.key == "Menu") {
                     page.menu = DuplicateString(prop.value, &temp_alloc).ptr;
@@ -702,11 +793,11 @@ static bool BuildAll(Span<const char> source_dir, UrlFormat urls, const char *ou
                 if (prop.value == "Copy") {
                     AssetCopy *copy = copies.AppendDefault();
 
-                    copy->dest_directory = NormalizePath(prop.section, &temp_alloc).ptr;
+                    copy->dest_filename = NormalizePath(prop.section, &temp_alloc).ptr;
 
                     while (ini.NextInSection(&prop)) {
                         if (prop.key == "From") {
-                            copy->src_directory = NormalizePath(prop.value, source_dir, &temp_alloc).ptr;
+                            copy->src_filename = NormalizePath(prop.value, source_dir, &temp_alloc).ptr;
                         } else if (prop.key == "Ignore") {
                             while (prop.value.len) {
                                 Span<const char> part = TrimStr(SplitStrAny(prop.value, " ,", &prop.value));
@@ -722,8 +813,8 @@ static bool BuildAll(Span<const char> source_dir, UrlFormat urls, const char *ou
                         }
                     }
 
-                    if (!copy->src_directory) {
-                        LogError("Missing copy source directory");
+                    if (!copy->src_filename) {
+                        LogError("Missing copy source filename");
                         valid = false;
                     }
                 } else if (prop.value == "Bundle") {
@@ -731,6 +822,7 @@ static bool BuildAll(Span<const char> source_dir, UrlFormat urls, const char *ou
 
                     bundle->name = DuplicateString(prop.section, &temp_alloc).ptr;
                     bundle->dest_filename = NormalizePath(prop.section, output_dir, &temp_alloc).ptr;
+                    bundle->gzip_filename = Fmt(&temp_alloc, "%1.gz", bundle->dest_filename).ptr;
 
                     while (ini.NextInSection(&prop)) {
                         if (prop.key == "Source") {
@@ -761,8 +853,8 @@ static bool BuildAll(Span<const char> source_dir, UrlFormat urls, const char *ou
     if (!copies.len) {
         AssetCopy copy = {};
 
-        copy.dest_directory = ".";
-        copy.src_directory = Fmt(&temp_alloc, "%1%/assets", source_dir).ptr;
+        copy.dest_filename = ".";
+        copy.src_filename = Fmt(&temp_alloc, "%1%/assets", source_dir).ptr;
 
         copies.Append(copy);
     }
@@ -781,8 +873,29 @@ static bool BuildAll(Span<const char> source_dir, UrlFormat urls, const char *ou
         Async async;
 
         HeapArray<const char *> src_filenames;
-        if (!EnumerateFiles(copy.src_directory, nullptr, 3, 1024, &temp_alloc, &src_filenames))
-            return false;
+        {
+            FileInfo file_info;
+            if (StatFile(copy.src_filename, &file_info) != StatResult::Success)
+                return false;
+
+            switch (file_info.type) {
+                case FileType::Directory: {
+                    if (!EnumerateFiles(copy.src_filename, nullptr, 3, 1024, &temp_alloc, &src_filenames))
+                        return false;
+                } break;
+                case FileType::File: {
+                    src_filenames.Append(copy.src_filename);
+                } break;
+
+                case FileType::Link:
+                case FileType::Device:
+                case FileType::Pipe:
+                case FileType::Socket: {
+                    LogError("Cannot copy '%1' with unexpected file type '%2'", copy.src_filename, FileTypeNames[(int)file_info.type]);
+                    return false;
+                } break;
+            }
+        }
 
         // Remove ignored patterns
         src_filenames.RemoveFrom(std::remove_if(src_filenames.begin(), src_filenames.end(),
@@ -791,18 +904,24 @@ static bool BuildAll(Span<const char> source_dir, UrlFormat urls, const char *ou
                                [&](const char *pattern) { return MatchPathSpec(filename, pattern); });
         }) - src_filenames.begin());
 
-        Size prefix_len = strlen(copy.src_directory);
+        Size prefix_len = strlen(copy.src_filename);
 
         for (const char *src_filename: src_filenames) {
             const char *basename = TrimStrLeft(src_filename + prefix_len, RG_PATH_SEPARATORS).ptr;
 
-            const char *url = NormalizePath(basename, copy.dest_directory, &temp_alloc).ptr;
+            Span<const char> url = NormalizePath(basename, copy.dest_filename, &temp_alloc);
             const char *dest_filename = Fmt(&temp_alloc, "%1%/%2", output_dir, url).ptr;
             const char *gzip_filename = Fmt(&temp_alloc, "%1.gz", dest_filename).ptr;
 
+#if defined(_WIN32)
+            for (char &c: url.As<char>()) {
+                c = (c == '\\') ? '/' : c;
+            }
+#endif
+
             FileHash *hash = assets.hashes.AppendDefault();
 
-            hash->name = url;
+            hash->name = url.ptr;
             hash->filename = dest_filename;
 
             async.Run([=]() {
@@ -856,7 +975,7 @@ static bool BuildAll(Span<const char> source_dir, UrlFormat urls, const char *ou
             hash->name = bundle.name;
             hash->filename = bundle.dest_filename;
 
-            async.Run([=] { return BundleScript(bundle, esbuild_path, hash->sha256); });
+            async.Run([=] { return BundleScript(bundle, esbuild_path, hash->sha256, gzip); });
 
             assets.map.Set(hash);
         }
@@ -917,30 +1036,31 @@ static bool BuildAll(Span<const char> source_dir, UrlFormat urls, const char *ou
     return true;
 }
 
-int Main(int argc, char *argv[])
+int Main(int argc, char **argv)
 {
     RG_CRITICAL(argc >= 1, "First argument is missing");
-
-    BlockAllocator temp_alloc;
 
     // Options
     const char *source_dir = ".";
     const char *output_dir = nullptr;
     bool gzip = false;
     UrlFormat urls = UrlFormat::Pretty;
+    bool loop = false;
 
-    const auto print_usage = [=](FILE *fp) {
-        PrintLn(fp, R"(Usage: %!..+%1 [options] -O <output_dir>%!0
+    const auto print_usage = [=](StreamWriter *st) {
+        PrintLn(st,
+R"(Usage: %!..+%1 [options] -O <output_dir>%!0
 
 Options:
     %!..+-S, --source_dir <file>%!0      Set source directory
                                  %!D..(default: %2)%!0
 
     %!..+-O, --output_dir <dir>%!0       Set output directory
+    %!..+-u, --urls <FORMAT>%!0          Change URL format (%3)
+                                 %!D..(default: %4)%!0
         %!..+--gzip%!0                   Create static gzip files
 
-    %!..+-u, --urls <FORMAT>%!0          Change URL format (%3)
-                                 %!D..(default: %4)%!0)",
+    %!..+-l, --loop%!0                   Build repeatedly until interrupted)",
                 FelixTarget, source_dir, FmtSpan(UrlFormatNames), UrlFormatNames[(int)urls]);
     };
 
@@ -957,19 +1077,21 @@ Options:
 
         while (opt.Next()) {
             if (opt.Test("--help")) {
-                print_usage(stdout);
+                print_usage(&stdout_st);
                 return 0;
             } else if (opt.Test("-S", "--source_dir", OptionType::Value)) {
                 source_dir = opt.current_value;
             } else if (opt.Test("-O", "--output_dir", OptionType::Value)) {
                 output_dir = opt.current_value;
-            } else if (opt.Test("--gzip")) {
-                gzip = true;
             } else if (opt.Test("-u", "--urls", OptionType::Value)) {
                 if (!OptionToEnumI(UrlFormatNames, opt.current_value, &urls)) {
                     LogError("Unknown URL format '%1'", opt.current_value);
                     return true;
                 }
+            } else if (opt.Test("--gzip")) {
+                gzip = true;
+            } else if (opt.Test("-l", "--loop")) {
+                loop = true;
             } else {
                 LogError("Cannot handle option '%1'", opt.current_option);
                 return 1;
@@ -982,8 +1104,21 @@ Options:
         return 1;
     }
 
-    if (!BuildAll(source_dir, urls, output_dir, gzip))
-        return 1;
+    LogInfo("Source directory: %!..+%1%!0", source_dir);
+    LogInfo("Output directory: %!..+%1%!0", output_dir);
+
+    if (loop) {
+        do {
+            if (BuildAll(source_dir, urls, output_dir, gzip)) {
+                LogInfo("Build successful");
+            } else {
+                LogError("Build failed");
+            }
+        } while (WaitForInterrupt(1000) != WaitForResult::Interrupt);
+    } else {
+        if (!BuildAll(source_dir, urls, output_dir, gzip))
+            return 1;
+    }
 
     LogInfo("Done!");
     return 0;
