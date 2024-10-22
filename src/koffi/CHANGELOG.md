@@ -21,9 +21,8 @@
 
 - Work around MSVC compiler bug introduced in Visual Studio 17.10
 
-```{warning}
+> [!WARNING]
 Use on platforms without pre-built binaries is broken in Koffi 2.8.10, skip this version.
-```
 
 #### Koffi 2.8.9 (2024-05-17)
 
@@ -51,9 +50,8 @@ Use on platforms without pre-built binaries is broken in Koffi 2.8.10, skip this
 
 - Use simpler workaround for Node 20.12+ and 21.6+ to avoid excessive memory use
 
-```{warning}
-Some pre-built binaries are missing in Koffi 2.8.3, skip this version.
-```
+> [!WARNING]
+> Some pre-built binaries are missing in Koffi 2.8.3, skip this version.
 
 #### Koffi 2.8.2 (2024-04-07)
 
@@ -120,9 +118,8 @@ Some pre-built binaries are missing in Koffi 2.8.3, skip this version.
 - Show detected version of Node when not adequate
 - Minor documentation fixes
 
-```{warning}
-Loading Win32 system libraries can fail in Koffi 2.6.8, skip this version.
-```
+> [!WARNING]
+> Loading Win32 system libraries can fail in Koffi 2.6.8, skip this version.
 
 #### Koffi 2.6.6 (2023-10-28)
 
@@ -141,9 +138,8 @@ Loading Win32 system libraries can fail in Koffi 2.6.8, skip this version.
 
 - Add indirect loading script to help some bundlers
 
-```{warning}
-Pre-built binaries don't work correctly in Koffi 2.6.2, skip this version.
-```
+> [!WARNING]
+> Pre-built binaries don't work correctly in Koffi 2.6.2, skip this version.
 
 #### Koffi 2.6.1 (2023-09-18)
 
@@ -185,9 +181,8 @@ Pre-built binaries don't work correctly in Koffi 2.6.2, skip this version.
 - Fix DLL error when using Koffi from NW.js on Windows
 - Simplify NW.js Koffi example
 
-```{warning}
-Pre-built binaries don't work correctly in Koffi 2.5.13 to 2.5.15, skip those versions.
-```
+> [!WARNING]
+> Pre-built binaries don't work correctly in Koffi 2.5.13 to 2.5.15, skip those versions.
 
 #### Koffi 2.5.12 (2023-08-21)
 
