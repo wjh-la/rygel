@@ -402,4 +402,4 @@ In C, dynamically-sized arrays are usually passed around as pointers. Read more 
 
 # Union types
 
-The declaration and use of [unions types](unions) will be explained in a later section, they are only briefly mentioned here if you need them.
+The declaration and use of [union types](unions) will be explained in a later section, they are only briefly mentioned here if you need them.
