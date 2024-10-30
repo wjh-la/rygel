@@ -98,10 +98,10 @@ node qemu.js stop # Stop everything
 You can also restrict the test to a subset of machines:
 
 ```sh
- Full test cycle
+# Full test cycle
 node qemu.js test debian_x64 debian_i386
 
- Separate start, test, shutdown
+# Separate start, test, shutdown
 node qemu.js start debian_x64 debian_i386
 node qemu.js test debian_x64 debian_i386
 node qemu.js stop
