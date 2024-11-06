@@ -265,7 +265,7 @@ async function test() {
     const ChangeDirectory = lib.func('void ChangeDirectory(const char *dirname)');
     const ComputeLengthUntilNulV = lib.func('int ComputeLengthUntilNul(void *ptr)');
     const ComputeLengthUntilNulB = lib.func('int ComputeLengthUntilNul(int8_t *ptr)');
-    const ComputeLengthUntilNulWide = lib.func('int ComputeLengthUntilNulWide(int16_t *ptr)');
+    const ComputeLengthUntilNul16 = lib.func('int ComputeLengthUntilNul16(int16_t *ptr)');
     const ReverseStringVoid = lib.func('void ReverseStringVoid(_Inout_ void *ptr)');
     const ReverseString16Void = lib.func('void ReverseString16Void(_Inout_ void *ptr)');
     const GetBinaryIntFunction = lib.func('BinaryIntFunc *GetBinaryIntFunction(const char *name)');
@@ -289,6 +289,7 @@ async function test() {
     const WriteConfigure32 = lib.func('void WriteConfigure32(char32_t *buf, int size)');
     const WriteString32 = lib.func('void WriteString32(const char32_t *str)');
     const ReturnBool = lib.func('bool ReturnBool(int value)');
+    const ComputeWideLength = lib.func('int ComputeWideLength(const wchar_t *str)');
 
     free_ptr = CallFree;
 
@@ -724,8 +725,8 @@ async function test() {
     assert.equal(ComputeLengthUntilNulV('Hello World!'), 12);
     assert.equal(ComputeLengthUntilNulB([1, 42, 0]), 2);
     assert.equal(ComputeLengthUntilNulB('Hello..'), 7);
-    assert.equal(ComputeLengthUntilNulWide([0xAAAA, 0xAAAA, 42, 0]), 3);
-    assert.equal(ComputeLengthUntilNulWide('ẹỊ¢a'), 4);
+    assert.equal(ComputeLengthUntilNul16([0xAAAA, 0xAAAA, 42, 0]), 3);
+    assert.equal(ComputeLengthUntilNul16('ẹỊ¢a'), 4);
 
     // Test input/output strings with polymorphic arguments
     {
@@ -906,6 +907,17 @@ async function test() {
     assert.equal(ReturnBool(-1), true);
     assert.equal(ReturnBool(-2), true);
     assert.equal(ReturnBool(0xFFFFFE), true);
+
+    // Check wchar_t encoding
+    assert.equal(ComputeWideLength("00000000"), 8);
+    assert.equal(ComputeWideLength("000000000"), 9);
+    assert.equal(ComputeWideLength("0000000000"), 10);
+    assert.equal(ComputeWideLength("00000000000"), 11);
+    assert.equal(ComputeWideLength("000000000000"), 12);
+    assert.equal(ComputeWideLength("0000000000000"), 13);
+    assert.equal(ComputeWideLength("00000000000000"), 14);
+    assert.equal(ComputeWideLength("000000000000000"), 15);
+    assert.equal(ComputeWideLength("0000000000000000"), 16);
 
     lib.unload();
 }

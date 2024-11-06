@@ -844,7 +844,7 @@ EXPORT int ComputeLengthUntilNul(const void *ptr)
     return (int)strlen(ptr);
 }
 
-static size_t WideStringLength(const char16_t *str16)
+static size_t StringLength16(const char16_t *str16)
 {
     size_t len = 0;
 
@@ -855,9 +855,9 @@ static size_t WideStringLength(const char16_t *str16)
     return len;
 }
 
-EXPORT int ComputeLengthUntilNulWide(const int16_t *ptr)
+EXPORT int ComputeLengthUntilNul16(const int16_t *ptr)
 {
-    return (int)WideStringLength((const char16_t *)ptr);
+    return (int)StringLength16((const char16_t *)ptr);
 }
 
 EXPORT void ReverseStringVoid(void *ptr)
@@ -875,7 +875,7 @@ EXPORT void ReverseStringVoid(void *ptr)
 EXPORT void ReverseString16Void(void *ptr)
 {
     char16_t *str16 = (char16_t *)ptr;
-    size_t len = WideStringLength(ptr);
+    size_t len = StringLength16(ptr);
 
     for (size_t i = 0; i < len / 2; i++) {
         char16_t tmp = str16[i];
@@ -1049,4 +1049,9 @@ EXPORT bool ReturnBool(int cond)
     bool ret = DoReturnBool(cond);
     assert(ret == !!cond);
     return ret;
+}
+
+EXPORT int ComputeWideLength(const wchar_t *str)
+{
+    return (int)wcslen(str);
 }
