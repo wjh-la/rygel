@@ -329,6 +329,7 @@ void HandleRecordList(http_IO *io, InstanceHolder *instance)
 
         json.Key("tid"); json.String(cursor->tid);
         json.Key("saved"); json.Bool(true);
+        json.Key("online"); json.Bool(true);
         json.Key("locked"); json.Bool(cursor->locked);
 
         json.Key("entries"); json.StartObject();
@@ -467,6 +468,7 @@ void HandleRecordGet(http_IO *io, InstanceHolder *instance)
 
         json.Key("tid"); json.String(cursor->tid);
         json.Key("saved"); json.Bool(true);
+        json.Key("online"); json.Bool(true);
         json.Key("locked"); json.Bool(cursor->locked);
 
         json.Key("entries"); json.StartObject();

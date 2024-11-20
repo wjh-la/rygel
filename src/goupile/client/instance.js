@@ -14,13 +14,13 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { render, html, svg } from '../../../vendor/lit-html/lit-html.bundle.js';
-import { Util, Log, Net, LruMap, Mutex, LocalDate, LocalTime } from '../../web/libjs/common.js';
+import { Util, Log, Net, LruMap, Mutex, LocalDate, LocalTime, NetworkError } from '../../web/libjs/common.js';
 import * as mixer from '../../web/libjs/mixer.js';
 import * as goupile from './goupile.js';
 import { profile } from './goupile.js';
 import * as UI from './ui.js';
 import { exportRecords } from './data_export.js';
-import { DataRemote } from './data_remote.js';
+import { DataAccess } from './data_access.js';
 import { ApplicationInfo, ApplicationBuilder } from './instance_app.js';
 import { InstancePublisher } from './instance_publish.js';
 import { FormState, FormModel, FormBuilder } from './form.js';
@@ -44,7 +44,7 @@ let main_works = true;
 let head_length = Number.MAX_SAFE_INTEGER;
 let page_div = document.createElement('div');
 
-let records = new DataRemote;
+let records = new DataAccess;
 
 let form_thread = null;
 let form_entry = null;
@@ -979,7 +979,7 @@ function addAutomaticActions(builder, model) {
         let is_new = (form_entry.anchor < 0);
 
         let can_save = !form_thread.locked && form_state.hasChanged();
-        let can_lock = form_thread.saved && route.page.options.has_lock &&
+        let can_lock = form_thread.online && route.page.options.has_lock &&
                        (!form_thread.locked || goupile.hasPermission('data_audit'));
 
         if (can_save) {
@@ -989,7 +989,7 @@ function addAutomaticActions(builder, model) {
                 form_builder.triggerErrors();
 
                 await data_mutex.run(async () => {
-                    await saveRecord(form_thread.tid, form_entry, form_data, form_meta);
+                    await saveRecord(form_thread, form_entry, form_data, form_meta);
                     await openRecord(form_thread.tid, null, route.page);
                     data_threads = null;
                 });
@@ -1558,7 +1558,7 @@ async function go(e, url = null, options = {}) {
                             d.action('Enregistrer', {}, async e => {
                                 try {
                                     form_builder.triggerErrors();
-                                    await saveRecord(form_thread.tid, form_entry, form_data, form_meta);
+                                    await saveRecord(form_thread, form_entry, form_data, form_meta);
                                 } catch (err) {
                                     reject(err);
                                 }
@@ -1641,7 +1641,7 @@ async function run(push_history = true) {
         // Load data rows (if needed)
         if (UI.isPanelActive('data')) {
             if (data_threads == null) {
-                let threads = await Net.get(`${ENV.urls.instance}api/records/list`);
+                let threads = await records.list();
 
                 data_threads = threads.map(thread => {
                     let sequence = null;
@@ -1944,6 +1944,7 @@ async function openRecord(tid, anchor, page) {
         new_thread = {
             tid: Util.makeULID(),
             saved: false,
+            online: false,
             locked: false,
             entries: {}
         };
@@ -2048,7 +2049,7 @@ function runAnnotationDialog(e, intf) {
 }
 
 // Call with data_mutex locked
-async function saveRecord(tid, entry, data, meta) {
+async function saveRecord(thread, entry, data, meta) {
     entry = Object.assign({}, entry);
 
     entry.summary = meta.summary;
@@ -2067,12 +2068,44 @@ async function saveRecord(tid, entry, data, meta) {
         entry.tags = Array.from(tags);
     }
 
-    await records.save(tid, entry, ENV.version, meta.constraints, meta.signup);
+    if (ENV.use_offline && !thread.online) {
+        if (goupile.isLoggedOnline()) {
+            try {
+                await records.saveOnline(thread.tid, entry, ENV.version, meta.constraints, meta.signup);
+            } catch (err) {
+                if (!(err instanceof NetworkError))
+                    throw err;
+
+               await records.saveOffline(thread.tid, entry, ENV.version);
+           }
+       } else {
+           await records.saveOffline(thread.tid, entry, ENV.version);
+       }
+    } else {
+        await records.saveOnline(thread.tid, entry, ENV.version, meta.constraints, meta.signup);
+    }
 
     if (!profile.userid) {
         window.onbeforeunload = null;
         window.location.href = window.location.href;
     }
+}
+
+async function openInstanceDB() {
+    let db_name = `goupile-${ENV.urls.instance}@${profile.userid}`;
+
+    let db = await IDB.open(db_name, 1, (db, old_version) => {
+        switch (old_version) {
+            case null: {
+                db.createStore('entries', { autoIncrement: true });
+
+                db.createIndex('entries', 't', 'keys.tid', { unique: false });
+                db.createIndex('entries', 'ts', 'keys.ts');
+            } // fallthrough
+        }
+    });
+
+    return db;
 }
 
 export {

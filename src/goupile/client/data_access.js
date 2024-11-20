@@ -15,8 +15,16 @@
 
 import { Util, Log, Net } from '../../web/libjs/common.js';
 
-function DataRemote() {
+function DataAccess(db = null) {
     let self = this;
+
+    this.list = async function() {
+        let threads = await Net.get(`${ENV.urls.instance}api/records/list`);
+
+        for (let thread of thread) {
+
+        }
+    };
 
     this.load = async function(tid, anchor) {
         let url = Util.pasteURL(`${ENV.urls.instance}api/records/get`, {
@@ -25,10 +33,33 @@ function DataRemote() {
         });
         let thread = await Net.get(url);
 
+        if (db != null && thread == null && anchor == null) {
+            let entries = await db.loadAll('entries/t', tid);
+
+            if (data != null) {
+                thread = {
+                    tid: tid,
+                    saved: true,
+                    online: false,
+                    locked: false,
+                    entries: entries.map(entry => ({
+                        store: entry.store,
+                        eid: entry.eid,
+                        anchor: 0,
+                        ctime: entry.ctime,
+                        mtime: entry.mtime,
+                        sequence: null,
+                        summary: entry.summary,
+                        tags: null
+                    }))
+                };
+            }
+        }
+
         return thread;
     };
 
-    this.save = async function(tid, entry, fs, constraints, signup) {
+    this.saveOnline = async function(tid, entry, fs, constraints, signup) {
         await Net.post(ENV.urls.instance + 'api/records/save', {
             tid: tid,
             fragment: {
@@ -46,6 +77,26 @@ function DataRemote() {
         });
     };
 
+    this.saveOffline = async function(tid, entry, fs, constraints) {
+        await db.save('entries', {
+            tid: tid,
+            keys: {
+                tid: tid,
+                ts: tid + '/' + entry.store
+            },
+            fragment: {
+                fs: fs,
+                eid: entry.eid,
+                store: entry.store,
+                summary: entry.summary,
+                data: entry.data,
+                meta: entry.meta,
+                tags: entry.tags,
+                constraints: constraints
+            }
+        });
+    };
+
     this.delete = async function(tid) {
         await Net.post(ENV.urls.instance + 'api/records/delete', { tid: tid });
     };
@@ -56,6 +107,16 @@ function DataRemote() {
 
     this.unlock = async function(tid) {
         await Net.post(ENV.urls.instance + 'api/records/unlock', { tid: tid });
+    };
+
+    this.sync = async function() {
+        let entries = await db.loadAll('entries');
+
+        if (entries.length) {
+            for (let entry of entries) {
+                
+            }
+        }
     };
 }
 
