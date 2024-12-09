@@ -20,8 +20,9 @@
    OTHER DEALINGS IN THE SOFTWARE. */
 
 html {
-    --top_height: 120px;
-    --small_height: 90px;
+    --top_height: 90px;
+    --top_padding: 6px;
+    --small_height: 80px;
 
     height: 100%;
     scroll-padding-top: calc(var(--top_height) + 10px);
@@ -68,7 +69,7 @@ a:has(> img) { text-decoration: none !important; }
     height: var(--top_height);
     box-sizing: border-box;
     margin: 0 auto;
-    padding: 16px 16px 24px 16px;
+    padding: var(--top_padding);
     overflow: visible;
     z-index: 1;
     display: flex;
