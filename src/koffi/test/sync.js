@@ -160,6 +160,8 @@ const BufferInfo = koffi.struct('BufferInfo', {
 const BinaryIntFunc = koffi.proto('int BinaryIntFunc(int a, int b)');
 const VariadicIntFunc = koffi.proto('int VariadicIntFunc(int n, ...)');
 
+const OpaqueStruct = koffi.opaque('OpaqueStruct');
+
 main();
 
 async function main() {
@@ -290,6 +292,7 @@ async function test() {
     const WriteString32 = lib.func('void WriteString32(const char32_t *str)');
     const ReturnBool = lib.func('bool ReturnBool(int value)');
     const ComputeWideLength = lib.func('int ComputeWideLength(const wchar_t *str)');
+    const FillOpaqueStruct = lib.func('void FillOpaqueStruct(unsigned int value, _Out_ OpaqueStruct *opaque)');
 
     free_ptr = CallFree;
 
@@ -918,6 +921,22 @@ async function test() {
     assert.equal(ComputeWideLength("00000000000000"), 14);
     assert.equal(ComputeWideLength("000000000000000"), 15);
     assert.equal(ComputeWideLength("0000000000000000"), 16);
+
+    // Redefine opaque type to concrete struct
+    {
+        koffi.struct(OpaqueStruct, {
+            a: 'int',
+            b: 'int',
+            c: 'int',
+            d: 'int'
+        });
+
+        let opaque = {};
+        FillOpaqueStruct(0xFB422708, opaque);
+
+        assert.throws(() => koffi.struct(OpaqueStruct, { dummy: 'int' }), /Cannot redefine non-opaque type/);
+        assert.deepEqual(opaque, { a: 0xFB, b: 0x42, c: 0x27, d: 0x8 });
+    }
 
     lib.unload();
 }

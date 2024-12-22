@@ -146,8 +146,8 @@ const TypeInfo *ResolveType(Napi::Value value, int *out_directions)
         return type;
     } else if (CheckValueTag(instance, value, &TypeInfoMarker)) {
         Napi::External<TypeInfo> external = value.As<Napi::External<TypeInfo>>();
-
         const TypeInfo *raw = external.Data();
+
         const TypeInfo *type = AlignDown(raw, 4);
         RG_ASSERT(type);
 

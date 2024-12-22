@@ -188,6 +188,13 @@ typedef struct BufferInfo {
     uint8_t *ptr;
 } BufferInfo;
 
+typedef struct OpaqueStruct {
+    int a;
+    int b;
+    int c;
+    int d;
+} OpaqueStruct;
+
 EXPORT int sym_int = 0;
 EXPORT const char *sym_str = NULL;
 EXPORT int sym_int3[3] = { 0, 0, 0 };
@@ -1054,4 +1061,12 @@ EXPORT bool ReturnBool(int cond)
 EXPORT int ComputeWideLength(const wchar_t *str)
 {
     return (int)wcslen(str);
+}
+
+EXPORT void FillOpaqueStruct(unsigned int value, OpaqueStruct *opaque)
+{
+    opaque->a = (value >> 24) & 0xFF;
+    opaque->b = (value >> 16) & 0xFF;
+    opaque->c = (value >> 8) & 0xFF;
+    opaque->d = (value >> 0) & 0xFF;
 }
