@@ -5,6 +5,13 @@
 
 ## Koffi 2
 
+### Koffi 2.10
+
+#### Koffi 2.10.0 (2024-12-22)
+
+- Allow [redefinition of opaque types](misc#circular-references) to concrete struct or union
+- Update documentation style
+
 ### Koffi 2.9
 
 #### Koffi 2.9.2 (2024-11-08)
