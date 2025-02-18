@@ -15,6 +15,7 @@
 #### Koffi 2.10.0 (2024-12-22)
 
 - Allow [redefinition of opaque types](misc#circular-references) to concrete struct or union
+- Clear out executable stack bit from ELF targets (`-z noexecstack`)
 - Update documentation style
 
 ### Koffi 2.9
