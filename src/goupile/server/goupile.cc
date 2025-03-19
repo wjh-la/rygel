@@ -22,6 +22,7 @@
 #include "message.hh"
 #include "record.hh"
 #include "user.hh"
+#include "zygote.hh"
 #include "../legacy/records.hh"
 #include "src/core/http/http.hh"
 #include "src/core/request/curl.hh"
@@ -787,6 +788,8 @@ static void HandleInstanceRequest(http_IO *io)
         HandleRecordUnlock(io, instance);
     } else if (!instance->legacy && TestStr(instance_url, "/api/records/sequence") && request.method == http_RequestMethod::Post) {
         HandleRecordSequence(io, instance);
+    } else if (!instance->legacy && TestStr(instance_url, "/api/records/batch") && request.method == http_RequestMethod::Post) {
+        HandleRecordBatch(io, instance);
     } else if (!instance->legacy && TestStr(instance_url, "/api/export/data") && request.method == http_RequestMethod::Get) {
         HandleExportData(io, instance);
     } else if (!instance->legacy && TestStr(instance_url, "/api/export/meta") && request.method == http_RequestMethod::Get) {
@@ -1056,6 +1059,18 @@ For help about those commands, type: %!..+%1 command --help%!0)",
         return 1;
 #endif
 
+    LogInfo("Init zygote");
+    {
+        ZygoteResult ret = RunZygote(sandbox, gp_domain.config.view_directory);
+
+        switch (ret) {
+            case ZygoteResult::Parent: {} break;
+
+            case ZygoteResult::Child: return 0;
+            case ZygoteResult::Error: return 1;
+        }
+    }
+
     // Apply sandbox
     if (sandbox) {
         LogInfo("Init sandbox");
@@ -1071,7 +1086,8 @@ For help about those commands, type: %!..+%1 command --help%!0)",
             gp_domain.config.database_directory,
             gp_domain.config.archive_directory,
             gp_domain.config.snapshot_directory,
-            gp_domain.config.tmp_directory
+            gp_domain.config.tmp_directory,
+            gp_domain.config.view_directory
         };
         const char *const mask_files[] = {
             gp_domain.config.config_filename

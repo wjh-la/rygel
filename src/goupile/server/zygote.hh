@@ -16,26 +16,17 @@
 #pragma once
 
 #include "src/core/base/base.hh"
-#include "src/core/http/http.hh"
 
 namespace RG {
 
-class InstanceHolder;
+enum class ZygoteResult {
+    Parent,
+    Child,
+    Error
+};
 
-void HandleRecordList(http_IO *io, InstanceHolder *instance);
-void HandleRecordGet(http_IO *io, InstanceHolder *instance);
-void HandleRecordAudit(http_IO *io, InstanceHolder *instance);
+ZygoteResult RunZygote(bool sandbox, const char *view_directory);
 
-void HandleExportData(http_IO *io, InstanceHolder *instance);
-void HandleExportMeta(http_IO *io, InstanceHolder *instance);
-
-void HandleRecordSave(http_IO *io, InstanceHolder *instance);
-void HandleRecordDelete(http_IO *io, InstanceHolder *instance);
-
-void HandleRecordLock(http_IO *io, InstanceHolder *instance);
-void HandleRecordUnlock(http_IO *io, InstanceHolder *instance);
-
-void HandleRecordSequence(http_IO *io, InstanceHolder *instance);
-void HandleRecordBatch(http_IO *io, InstanceHolder *instance);
+bool RunScript();
 
 }

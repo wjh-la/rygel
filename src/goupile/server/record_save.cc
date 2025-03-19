@@ -20,6 +20,7 @@
 #include "message.hh"
 #include "record.hh"
 #include "user.hh"
+#include "zygote.hh"
 #include "src/core/request/smtp.hh"
 #include "src/core/wrap/json.hh"
 #include "vendor/libsodium/src/libsodium/include/sodium.h"
@@ -990,6 +991,37 @@ void HandleRecordSequence(http_IO *io, InstanceHolder *instance)
         return true;
     });
     if (!success)
+        return;
+
+    io->SendText(200, "{}", "application/json");
+}
+
+void HandleRecordBatch(http_IO *io, InstanceHolder *instance)
+{
+    const InstanceHolder *master = instance->master;
+
+    if (!instance->config.data_remote) {
+        LogError("Records API is disabled in Offline mode");
+        io->SendError(403);
+        return;
+    }
+
+    RetainPtr<const SessionInfo> session = GetNormalSession(io, instance);
+    const SessionStamp *stamp = session ? session->GetStamp(master) : nullptr;
+
+    if (!session) {
+        LogError("User is not logged in");
+        io->SendError(401);
+        return;
+    }
+    if (!stamp || !stamp->HasPermission(UserPermission::BuildBatch)) {
+        LogError("User is not allowed to batch changes");
+        io->SendError(403);
+        return;
+    }
+
+    // XXX: Test
+    if (!RunScript())
         return;
 
     io->SendText(200, "{}", "application/json");
