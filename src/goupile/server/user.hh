@@ -115,6 +115,8 @@ public:
     void AuthorizeInstance(const InstanceHolder *instance, uint32_t permissions, const char *lock = nullptr);
 };
 
+void WriteProfileJson(const SessionInfo *session, const InstanceHolder *instance, json_Writer *json);
+
 RetainPtr<SessionInfo> LoginUserAuto(http_IO *io, int64_t userid);
 
 void InvalidateUserStamps(int64_t userid);

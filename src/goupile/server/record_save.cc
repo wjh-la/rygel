@@ -1020,8 +1020,21 @@ void HandleRecordBatch(http_IO *io, InstanceHolder *instance)
         return;
     }
 
-    // XXX: Test
-    if (!RunScript())
+    int64_t fs_version = master->fs_version.load(std::memory_order_relaxed);
+
+    // Build profile JSON
+    Span<const char> profile = {};
+    {
+        HeapArray<char> buf(io->Allocator());
+        StreamWriter st(&buf);
+        json_Writer json(&st);
+
+        WriteProfileJson(session.GetRaw(), instance, &json);
+
+        profile = buf.Leak();
+    }
+
+    if (!RunForm(fs_version, profile))
         return;
 
     io->SendText(200, "{}", "application/json");

@@ -16,6 +16,7 @@
 #include "src/core/base/base.hh"
 #include "zygote.hh"
 #include "src/core/sandbox/sandbox.hh"
+#include "src/core/wrap/json.hh"
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <unistd.h>
@@ -136,7 +137,7 @@ static bool ApplySandbox(Span<const char *const> reveal_paths)
     return sb.Apply();
 }
 
-static bool ProcessRun(struct cmsghdr *cmsg)
+static bool ProcessRunForm(struct cmsghdr *cmsg)
 {
     if (!cmsg) {
         LogError("Missing ancillary data for request command");
@@ -164,7 +165,26 @@ static bool ProcessRun(struct cmsghdr *cmsg)
     if (pid > 0)
         return true;
 
-    LogInfo("RUN!");
+    // Read payload
+    HeapArray<char> payload;
+    {
+        StreamReader st(fd, "<server>");
+
+        if (st.ReadAll(-1, &payload) < 0)
+            return false;
+    }
+
+    // Write it back
+    {
+        StreamWriter st(fd, "<server>", (int)StreamWriterFlag::NoBuffer);
+
+        if (!st.Write(payload))
+            return false;
+        if (!st.Close())
+            return false;
+
+        shutdown(fd, SHUT_WR);
+    }
 
     return true;
 }
@@ -198,7 +218,7 @@ static bool ServeRequests()
         switch (type) {
             case 1: {
                 struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
-                ProcessRun(cmsg);
+                ProcessRunForm(cmsg);
             } break;
 
             default: { LogError("Ignoring unknown message 0x%1 from server process", FmtHex(type)); } break;
@@ -281,7 +301,7 @@ ZygoteResult RunZygote(bool sandbox, const char *view_directory)
     }
 }
 
-bool RunScript()
+bool RunForm(int64_t fs_version, Span<const char> profile)
 {
     RG_ASSERT(main_pfd[0] >= 0);
     RG_ASSERT(main_pfd[1] < 0);
@@ -329,7 +349,34 @@ bool RunScript()
         pfd[1] = -1;
     }
 
-    // Do somethng with pfd[0]!
+    // Send request payload
+    {
+        StreamWriter st(pfd[0], "<zygote>");
+        json_Writer json(&st);
+
+        json.StartObject();
+        json.Key("fs"); json.Int64(fs_version);
+        json.Key("profile"); json.Raw(profile);
+        json.Key("data"); json.Null();
+        json.Key("meta"); json.Null();
+        json.EndObject();
+
+        if (!st.Close())
+            return false;
+
+        shutdown(pfd[0], SHUT_WR);
+    }
+
+    // Read results
+    HeapArray<char> results;
+    {
+        StreamReader st(pfd[0], "<zygote>");
+
+        if (st.ReadAll(-1, &results) < 0)
+            return false;
+    }
+
+    LogInfo("RESULTS: %1", results);
 
     return true;
 }

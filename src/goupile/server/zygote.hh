@@ -27,6 +27,6 @@ enum class ZygoteResult {
 
 ZygoteResult RunZygote(bool sandbox, const char *view_directory);
 
-bool RunScript();
+bool RunForm(int64_t fs_version, Span<const char> profile);
 
 }
