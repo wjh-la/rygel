@@ -438,6 +438,82 @@ void HandleLogin(http_IO *io)
     io->SendText(200, token, "application/json");
 }
 
+void HandleRecover(http_IO *io)
+{
+    const char *uid = nullptr;
+    const char *tkey = nullptr;
+    int registration = -1;
+    {
+        StreamReader st;
+        if (!io->OpenForRead(Kibibytes(1), &st))
+            return;
+        json_Parser parser(&st, io->Allocator());
+
+        parser.ParseObject();
+        while (parser.InObject()) {
+            Span<const char> key = {};
+            parser.ParseKey(&key);
+
+            if (key == "uid") {
+                parser.ParseString(&uid);
+            } else if (key == "tkey") {
+                parser.ParseString(&tkey);
+            } else if (key == "registration") {
+                parser.ParseInt(&registration);
+            } else if (parser.IsValid()) {
+                LogError("Unexpected key '%1'", key);
+                io->SendError(422);
+                return;
+            }
+        }
+        if (!parser.IsValid()) {
+            io->SendError(422);
+            return;
+        }
+    }
+
+    // Check missing or invalid values
+    {
+        bool valid = true;
+
+        if (!uid || !IsUUIDValid(uid)) {
+            LogError("Missing or invalid UID");
+            valid = false;
+        }
+        if (!tkey) {
+            LogError("Missing or invalid token key");
+            valid = false;
+        }
+        if (registration <= 0) {
+            LogError("Missing or invalid registration value");
+            valid = false;
+        }
+
+        if (!valid) {
+            io->SendError(422);
+            return;
+        }
+    }
+
+    // Make sure user exists
+    int64_t user = 0;
+    {
+        sq_Statement stmt;
+        if (!db.Prepare("SELECT id FROM users WHERE uid = uuid_blob(?1)", &stmt, uid))
+            return;
+
+        if (!stmt.Step()) {
+            if (stmt.IsValid()) {
+                LogError("Unknown user UID");
+                io->SendError(404);
+            }
+            return;
+        }
+
+        user = sqlite3_column_int64(stmt, 0);
+    }
+}
+
 static void AddGenerationHeaders(http_IO *io, int64_t generation, int64_t previous)
 {
     char buf[64];
