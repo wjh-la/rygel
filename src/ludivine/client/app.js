@@ -760,6 +760,13 @@ async function runRegister() {
                     <div>
                         <p>Toutes vos données étant chiffrées et sécurisées, <b>conservez précieusement le lien de connexion</b> qui va vous être envoyé par e-mail !
                         <p>Nous ne serons <b>pas en mesure de recréer le lien de connexion</b> qui existe dans ce mail si vous le perdez !
+                        <p>Cependant, vous pouvez utiliser la <b>pièce jointe qui était présente dans le mail d'inscription</b> pour récupérer votre compte le cas échéant.
+                        <div class="actions">
+                            <input type="file" name="file" style="display: none;" accept="text/plain"
+                                   @change=${UI.wrap(e => recover(e.target.files[0]))} />
+                            <button type="button" class="secondary small"
+                                    @click=${UI.wrap(runRecovery)}>Récupérer mon compte</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -780,6 +787,53 @@ async function register(e) {
 
     form.innerHTML = '';
     render(html`<p>Consultez l'email qui <b>vous a été envoyé</b> pour continuer !</p>`, form);
+}
+
+async function runRecovery(e) {
+    await UI.popup(e, html`
+        <div style="width: 500px;">
+            <p>Une pièce jointe nommée « Recupération ${ENV.title} » était présent dans le mail d'inscription, utilisez-la pour récupérer votre compte.</p>
+
+            <label style="align-items: center;">
+                <input type="file" name="file" style="display: none;"
+                       accept="text/plain" @change=${UI.wrap(e => recover(e.target.files[0]))} />
+                <button type="button" class="secondary small" @click=${e => { e.target.previousElementSibling.click(); e.preventDefault(); }}>Me connecter avec le fichier de récupéreration</button>
+            </label>
+
+            <p>Si vous n'avez plus cette pièce jointe, contactez-nous : <a href=${'mailto:' + ENV.contact}>${ENV.contact}</a>.
+        </div>
+    `);
+}
+
+async function recover(file) {
+    if (!file)
+        throw new Error('Fichier de récupération manquant');
+
+    let text = await new Promise((resolve, reject) => {
+        let reader = new FileReader;
+        reader.onload = e => resolve(e.target.result);
+        reader.readAsText(file);
+    });
+    let lines = text.split('\n').map(line => line.trim());
+
+    let separator = lines.indexOf('===');
+    let uid = lines[separator + 1];
+    let key = lines[separator + 2];
+
+    if (uid && key) {
+        let [tkey, registration] = key.split('/');
+
+        let url = '/session#' + new URLSearchParams({
+            uid: uid,
+            tk: tkey,
+            r: registration
+        });
+
+        window.onbeforeunload = null;
+        window.location.href = url;
+
+        poisoned = true;
+    }
 }
 
 async function runProfile() {
