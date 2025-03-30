@@ -19,12 +19,9 @@
    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
    OTHER DEALINGS IN THE SOFTWARE. */
 
-@media print {
-    #top { display: none; }
-    #side { display: none; }
+@import url('../../../vendor/opensans/OpenSans.css');
+@import url('./reset.css');
 
-    main { padding-right: 16px !important; }
-    footer { display: none; }
-
-    h1:not(:first-child) { break-before: page; }
-}
+@import url('./normal.css');
+@import url('./small.css');
+@import url('./print.css');

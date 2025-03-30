@@ -19,7 +19,11 @@
    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
    OTHER DEALINGS IN THE SOFTWARE. */
 
-@import url('../../../vendor/opensans/OpenSans.css');
-@import url('./normal.css');
-@import url('./small.css');
-@import url('./print.css');
+@media print {
+    #top { display: none; }
+    #side { display: none; }
+    #side ~ main { padding-right: 16px; }
+    footer { display: none; }
+
+    h1:not(:first-child) { break-before: page; }
+}

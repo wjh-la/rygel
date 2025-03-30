@@ -13,9 +13,10 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
-@import url('../flaat/flaat.css');
+@import url('../flat/flat.css');
 @import url('../../../vendor/highlight.js/styles/base16/tomorrow.css');
 
 html {
-    --primary_color: #ec7400;
+    --top_color: #ec7400;
+    --anchor_color: #ec7400;
 }

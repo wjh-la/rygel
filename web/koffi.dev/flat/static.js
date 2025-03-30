@@ -18,18 +18,18 @@ window.addEventListener('load', e => {
     initMenu();
     initSide();
     initScroll();
-
-    document.documentElement.classList.remove('nojs');
-    document.documentElement.classList.add('js');
 });
 
 function initDeploy() {
-    let deploy = document.querySelector('#deploy');
+    let el = document.querySelector('#deploy');
 
-    deploy.addEventListener('click', e => {
-        let top = document.querySelector('nav#top');
-        top.classList.toggle('active');
-    });
+    if (el != null)
+        el.addEventListener('click', deploy);
+}
+
+function deploy() {
+    let top = document.querySelector('nav#top');
+    top.classList.toggle('active');
 }
 
 function initMenu() {
@@ -142,7 +142,9 @@ function initScroll() {
 
     function adjust_top() {
         let top = document.querySelector('nav#top');
-        top.classList.toggle('border', window.pageYOffset >= 20);
+
+        if (top != null)
+            top.classList.toggle('border', window.pageYOffset >= 20);
     }
 }
 
@@ -151,3 +153,9 @@ function findParent(el, func) {
         el = el.parentElement;
     return el;
 }
+
+
+document.documentElement.classList.remove('nojs');
+document.documentElement.classList.add('js');
+
+export { deploy }

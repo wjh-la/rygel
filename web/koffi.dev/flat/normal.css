@@ -20,9 +20,16 @@
    OTHER DEALINGS IN THE SOFTWARE. */
 
 html {
+    --top_color: #ccc;
+    --anchor_color: #383838;
+    --button_color: #888;
+    --focus_color: #ececec;
+
     --top_height: 90px;
     --top_padding: 6px;
     --small_height: 80px;
+    --top_background: white;
+    --footer_background: #f6f6f9;
 
     height: 100%;
     scroll-padding-top: calc(var(--top_height) + 10px);
@@ -44,8 +51,13 @@ body {
     flex-direction: column;
 }
 
+canvas:focus {
+    border: none;
+    outline: none;
+}
+
 a {
-    color: var(--primary_color, #383838);
+    color: var(--color, var(--anchor_color));
     cursor: pointer;
     text-decoration: none;
 }
@@ -55,9 +67,9 @@ a:has(> img) { text-decoration: none !important; }
 #top {
     position: sticky;
     top: 0;
-    background: white;
+    background: var(--top_background);
     z-index: 9;
-    border-bottom: 2px solid white;
+    border-bottom: 2px solid var(--top_background);
     transition: border-bottom-color 0.4s ease;
 }
 #top.border { border-bottom-color: #383838; }
@@ -94,14 +106,20 @@ a:has(> img) { text-decoration: none !important; }
     display: block;
     border-bottom: 1px solid #383838;
     text-transform: uppercase;
+    text-wrap: nowrap;
 }
 #top li > a:hover, #top li.active > a {
     margin-bottom: -1px;
-    border-bottom: 2px solid var(--primary_color);
+    border-bottom: 2px solid var(--top_color);
+    color: var(--top_color);
 }
-#top li > a.active { font-weight: bold; }
+#top li > a.active {
+    font-weight: bold;
+    border-bottom-color: var(--top_color);
+    color: var(--top_color);
+}
 #top li > div { display: none; }
-.nojs #top li:has(> div):hover, #top li:has(> div).active { border-left-color: var(--primary_color); }
+.nojs #top li:has(> div):hover, #top li:has(> div).active { border-left-color: var(--top_color); }
 .nojs #top li:has(> div):hover > a, #top li:has(> div).active > a {
     margin-bottom: 1px;
     border-bottom: none;
@@ -114,9 +132,9 @@ a:has(> img) { text-decoration: none !important; }
     padding: 12px 1em 10px 1em;
     display: flex;
     flex-direction: column;
-    background: white;
-    border-left: 2px solid var(--primary_color);
-    border-bottom: 2px solid var(--primary_color);
+    background: var(--top_background);
+    border-left: 2px solid var(--top_color);
+    border-bottom: 2px solid var(--top_color);
 }
 #top li > div > a { margin-top: 3px; }
 #top li > div > a.active { font-weight: bold; }
@@ -126,7 +144,6 @@ a:has(> img) { text-decoration: none !important; }
     height: 70%;
     object-fit: contain;
     margin-right: 2em;
-    transition: filter 0.4s ease;
 }
 #logo > img {
     width: 100%;
@@ -163,7 +180,7 @@ a:has(> img) { text-decoration: none !important; }
 #side a.lv5 { padding-left: 72px; }
 #side a.lv6 { padding-left: 87px; }
 
-#deploy { display: none; }
+:is(#deploy, .deploy) { display: none; }
 
 main {
     flex: 1;
@@ -177,7 +194,7 @@ main {
 
 footer {
     padding: 0.5em;
-    background: #f6f6f9;
+    background: var(--footer_background);
     display: flex;
     gap: 1.5em;
     align-items: center;
@@ -222,54 +239,130 @@ h3 {
 * + h1, * + h2, * + h3 { margin-top: 1.2em; }
 
 table {
-    margin: 1em auto;
+    margin: 0 auto;
     border-collapse: collapse;
+    empty-cells: show;
+}
+* + table { margin-top: 1em; }
+tr {
+    border-bottom: 1px solid #ededf0;
+    vertical-align: middle;
+}
+th, td {
+    height: 1.5em;
+    padding: 0.5em;
+    vertical-align: middle;
 }
 th {
-    padding: 0.5em;
-    background: #fafafa;
+    background: #f8f8f8;
+    font-size: 0.9em;
+    font-variant: small-caps;
+    text-align: left;
+    user-select: none;
+    -webkit-user-select: none;
+}
+td {
+    background: white;
     border: 1px solid #ebebeb;
 }
+thead > tr { border: 1px solid #ededf0; }
 thead th { text-align: center; }
 tbody th {
     text-align: left;
     font-weight: normal;
     font-style: italic;
 }
-td {
-    padding: 0.5em;
-    background: white;
-    border: 1px solid #ebebeb;
-}
 th.center, td.center { text-align: center; }
 th.right, td.right { text-align: right; }
-
+table :is(td, th, col).check { width: 2em; }
+table :is(td, th).center { text-align: center; }
+table :is(td, th).right { text-align: right; }
+table :is(tr, td, th, col).missing {
+    font-style: italic;
+    color: var(--color, gray);
+}
+table :is(td, th).picture { padding: 6px 0 0 6px; }
+table :is(td, th).picture > img {
+    width: 24px;
+    height: 24px;
+}
 table + div.legend {
-    margin-top: calc(-1em + 2px);
+    margin-top: 6px;
     text-align: center;
     font-size: 0.8em;
 }
 
-.buttons {
-    margin: 1em;
+hr {
+    margin: 4px auto;
+    width: 90%;
+    border: none;
+    border-bottom: 1px solid #ededf0;
+}
+
+button {
+    padding: 0.35em 1em 0.45em 1em;
+    background: var(--button_color);
+    border: none;
+    border-radius: 10px;
+    color: white;
+    cursor: pointer;
+    white-space: nowrap;
+}
+button::-moz-focus-inner { border: 0; }
+button:not(:disabled):not(.active):hover {
+    background: color-mix(in srgb, var(--button_color) 90%, black);
+    color: white;
+}
+button:disabled {
+    filter: saturate(10%) brightness(80%);
+    cursor: not-allowed;
+    pointer-events: none;
+}
+button:disabled > * { opacity: 0.3; }
+button.active { background: color-mix(in srgb, var(--button_color) 50%, black); }
+button > img {
+    width: 16px;
+    height: 16px;
+    transform: translateY(2px);
+}
+button > img:only-child {
+    width: 32px;
+    height: 32px;
+    transform: translateY(4px);
+}
+
+.actions {
     display: flex;
+    margin-top: 1em;
     gap: 20px;
     justify-content: center;
+    align-items: start;
     flex-wrap: wrap;
 }
-.buttons > a {
+.actions + * { margin-top: 1em; }
+.actions > :is(a, button) {
     display: block;
-    width: 40%;
-    min-width: 250px;
-    background: var(--secondary_color);
+    width: 30%;
+    min-width: 10em;
+    background: var(--button_color);
     color: white;
-    padding: 0.6em 1em;
+    padding: 0.35em 2em 0.45em 2em;
     text-decoration: none;
     text-align: center;
 }
-.buttons > a:hover {
-    filter: brightness(80%) contrast(150%);
+.actions > :is(a, button):hover {
+    background: color-mix(in srgb, var(--button_color) 90%, black);
     color: white;
+}
+.actions > :is(a, button).disabled {
+    pointer-events: none;
+    filter: saturate(10%) brightness(50%);
+}
+
+span.warning { color: var(--color, red); }
+span.warning:before {
+    content: "⚠\FE0E";
+    margin-right: 2px;
 }
 
 code:not(.hljs) {

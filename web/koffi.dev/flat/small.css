@@ -27,7 +27,9 @@
         position: static;
     }
 
-    main { padding-right: 16px !important; }
+    #side ~ main { padding-right: 16px; }
+
+    button > span { display: none; }
 }
 
 @media screen and (max-width: 960px) {
@@ -35,6 +37,7 @@
 
     #top menu {
         height: var(--small_height);
+        padding-top: 16px;
         padding-left: 60px;
         flex-direction: column;
         gap: 0;
@@ -76,7 +79,7 @@
     .js #top.active #logo { display: none; }
     .nojs #top:hover #logo { display: none; }
 
-    #deploy {
+    :is(#deploy, .deploy) {
         display: block !important;
         position: fixed;
         width: 42px;
