@@ -672,6 +672,9 @@ async function test() {
         assert.equal(ptr1[0], 'HELLO WORLD')
         assert.ok(util.types.isExternal(ptr2[0]));
         assert.equal(koffi.decode(ptr2[0], 'char', -1), 'BONJOUR MONDE');
+
+        let view = Buffer.from(koffi.view(ptr2[0], 7));
+        assert.equal(view.toString(), 'BONJOUR');
     }
 
     // Use raw buffers for struct output

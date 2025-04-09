@@ -2107,6 +2107,44 @@ static Napi::Value EncodeValue(const Napi::CallbackInfo &info)
     return env.Undefined();
 }
 
+static Napi::Value CreateView(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+    InstanceData *instance = env.GetInstanceData<InstanceData>();
+
+    if (info.Length() < 1) {
+        ThrowError<Napi::TypeError>(env, "Expected 2 arguments, got %1", info.Length());
+        return env.Null();
+    }
+    if (!info[1].IsNumber()) {
+        ThrowError<Napi::TypeError>(env, "Unexpected %1 value for length, expected integer", GetValueType(instance, info[1]));
+        return env.Null();
+    }
+
+    void *ptr = nullptr;
+    if (!GetExternalPointer(env, info[0], &ptr))
+        return env.Null();
+    Size len = (Size)info[1].As<Napi::Number>().Int64Value();
+
+    if (len < 0) {
+        ThrowError<Napi::TypeError>(env, "Array length must be positive and non-zero");
+        return env.Null();
+    }
+
+    if (len) {
+        Napi::ArrayBuffer view = Napi::ArrayBuffer::New(env, ptr, (size_t)len);
+
+        if (!view.ByteLength()) {
+            ThrowError<Napi::Error>(env, "This runtime does not support external buffers");
+            return env.Null();
+        }
+
+        return view;
+    } else {
+        return Napi::ArrayBuffer::New(env, 0);
+    }
+}
+
 static Napi::Value ResetKoffi(const Napi::CallbackInfo &info)
 {
     Napi::Env env = info.Env();
@@ -2364,6 +2402,7 @@ static Napi::Object InitModule(Napi::Env env, Napi::Object exports)
     exports.Set("address", Napi::Function::New(env, GetPointerAddress, "address"));
     exports.Set("call", Napi::Function::New(env, CallPointerSync, "call"));
     exports.Set("encode", Napi::Function::New(env, EncodeValue, "encode"));
+    exports.Set("view", Napi::Function::New(env, CreateView, "view"));
 
     exports.Set("reset", Napi::Function::New(env, ResetKoffi, "reset"));
 
