@@ -204,12 +204,8 @@ function init(build, start, values) {
             let options = { schedule: debut.plus(6 * 7) };
 
             build.module('evenement', 'Évènement', () => {
-                build.form('evenement6', 'L’évènement qui vous a amené ici', (form, values) => evenement6(form, values, start), options)
-
-                build.form('pcl5', 'Problèmes liés à l\'évènement', pcl5, options)
-                build.form('adnm20', 'Évènements de vie', adnm20, options)
-                build.form('ctqsf', 'Enfance', ctqsf, options)
-                build.form('ptci', 'Pensées suite à l\'évènement', ptci, options)
+                build.form('evenement', 'L’évènement qui vous a amené ici', (form, values) => evenement6(form, values, start), options)
+                build.form('pensees', 'Pensées et ressentis', pensees6, options)
             });
 
             build.module('entourage', 'Entourage', () => {
@@ -223,11 +219,12 @@ function init(build, start, values) {
                 build.form('phq9', 'Manifestations dépressives', phq9, options)
                 build.form('gad7', 'Difficultés anxieuses', gad7, options)
                 build.form('ssi', 'Idées suicidaires', ssi, options)
-                build.form('substances', 'Consommations', substances, options)
                 build.form('isi', 'Qualité du sommeil', isi, options)
             });
 
             build.module('qualite', 'Qualité de vie', () => {
+                build.form('mhqol', 'Qualité de vie', mhqol, options)
+                build.form('comportements', 'Comportements', substances, options)
                 build.form('mhqol', 'Qualité de vie', mhqol, options)
             });
 

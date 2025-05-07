@@ -40,7 +40,7 @@ function build(form, values) {
 
         q("satisf1", html`Jusqu'à quel point êtes-vous <b>SATISFAIT(E)</b> de votre sommeil actuel ?`)
         q("satisf2", html`Jusqu'à quel point considérez-vous que vos difficultés de sommeil <b>PERTURBENT</b> votre fonctionnement quotidien ?`, {
-            help: "Par exemple fatigue, concentration, mémoire, humeur ?"
+            help: "Par exemple :fatigue, concentration, mémoire, humeur"
         })
         q("satisf3", html`À quel point considérez-vous que vos difficultés de sommeil sont <b>APPARENTES</b> pour les autres en termes de détérioration de la qualité de votre vie ?`)
         q("satisf4", html`Jusqu’à quel point êtes-vous <b>INQUIET(ÈTE)</b>/préoccupé(e) à propos de vos difficultés de sommeil ?`)

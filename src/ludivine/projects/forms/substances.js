@@ -19,7 +19,9 @@ import { ASSETS } from '../../assets/assets.js'
 function build(form, values) {
     form.values = values
 
-    form.intro = ''
+    form.intro = html`
+        <p>Les questions qui suivent portent sur des <b>comportements que vous pourriez présenter</b> (ou non) dans votre vie quotidienne. 
+    `
 
     form.part(() => {
         form.enumButtons("tabagisme", "Fumez-vous du tabac ?", [
@@ -43,8 +45,14 @@ function build(form, values) {
         }
     })
 
+    form.intro = html`
+        <p>Ce questionnaire interroge votre consommation d'alcool durant cette dernière année. Répondez donc en fonction de votre <b>consommation moyenne sur la dernière année</b> et non sur les dernières semaines.
+        <p>Pour votre information, nous vous rappelons que tous les verres ci-dessous contiennent la même quantité d'alcool pur et sont définis comme un « verre standard » dans ce questionnaire.
+        <p><i>Mais attention : une canette de 50cl d'une bière forte (8° ou 10°) contient l'équivalent de 4 verres standards et une bouteille de vin contient 8 verres standards.</i>
+    `
+
     form.part(() => {
-        form.enumButtons("audit1", "A quelle fréquence vous arrive-t-il de consommer des boissons contenant de l'alcool ?", [
+        form.enumButtons("audit1", "À quelle fréquence vous arrive-t-il de consommer des boissons contenant de l'alcool ?", [
             [0, "Jamais"],
             [1, "Au moins une fois par mois"],
             [2, "2 à 4 fois par mois"],
@@ -72,18 +80,18 @@ function build(form, values) {
     form.part(() => {
         form.enumButtons("audit3", "Au cours d'une méme occasion, c4 avec moi (ok pas CRP)ombien de fois vous arrive-t-il de boire six verres standards ou plus", [
             [0, "Jamais"],
-            [1, "Moins une fois par mois"],
-            [2, "1 fois par mois"],
-            [3, "1 fois par semaine"],
-            [4, "Tous les jours ou presque"]
+            [1, "Moins d'une fois par mois"],
+            [2, "Une fois par mois"],
+            [3, "Une fois par semaine"],
+            [4, "Chaque jour ou presque"]
         ])
 
         form.enumButtons("audit4", "Dans les 12 derniers mois, combien de fois avez-vous observé que vous n'étiez plus capable de vous arrêter de boire après avoir commencé", [
             [0, "Jamais"],
             [1, "Moins d'une fois par mois"],
-            [2, "1 fois par mois"],
-            [3, "1 fois par semaine"],
-            [4, "Tous les jours ou presque"]
+            [2, "Une fois par mois"],
+            [3, "Une fois par semaine"],
+            [4, "Chaque jour ou presque"]
         ])
     })
 
@@ -91,17 +99,17 @@ function build(form, values) {
         form.enumButtons("audit5", "Dans les 12 derniers mois, combien de fois le fait d'avoir bu de l'alcool, vous-a-t-il empêché de faire ce qu'on attendait normalement de vous ?", [
             [0, "Jamais"],
             [1, "Moins d'une fois par mois"],
-            [2, "1 fois par mois"],
-            [3, "1 fois par semaine"],
-            [4, "Tous les jours ou presque"]
-        ])
+            [2, "Une fois par mois"],
+            [3, "Une fois par semaine"],
+            [4, "Chaque jour ou presque"]
+        ], { help: "Par exemple : aller au travail, vous rendrez à un rendez-vous"})
 
         form.enumButtons("audit6", "Dans les 12 derniers mois, combien de fois, après une période de forte consommation, avez-vous du boire de l'alcool dès le matin pour vous remettre en forme ?", [
             [0, "Jamais"],
             [1, "Moins d'une fois par mois"],
-            [2, "1 fois par mois"],
-            [3, "1 fois par semaine"],
-            [4, "Tous les jours ou presque"]
+            [2, "Une fois par mois"],
+            [3, "Une fois par semaine"],
+            [4, "Chaque jour ou presque"]
         ])
     })
 
@@ -109,50 +117,57 @@ function build(form, values) {
         form.enumButtons("audit7", "Dans les 12 derniers mois, combien de fois avez-vou eu un sentiment de culpabilité ou de regret après avoir bu ?", [
             [0, "Jamais"],
             [1, "Moins d'une fois par mois"],
-            [2, "1 fois par mois"],
-            [3, "1 fois par semaine"],
-            [4, "Tous les jours ou presque"]
+            [2, "Une fois par mois"],
+            [3, "Une fois par semaine"],
+            [4, "Chaque jour ou presque"]
         ])
 
         form.enumButtons("audit8", "Dans les 12 derniers mois, combien de fois avez vous été incapable de vous souvenir de ce qui s'était passé la nuit précédente parce que vous aviez bu ?", [
             [0, "Jamais"],
             [1, "Moins d'une fois par mois"],
-            [2, "1 fois par mois"],
-            [3, "1 fois par semaine"],
-            [4, "Tous les jours ou presque"]
+            [2, "Une fois par mois"],
+            [3, "Une fois par semaine"],
+            [4, "Chaque jour ou presque"]
         ])
     })
 
     form.part(() => {
         form.enumRadio("audit9", "Vous êtes-vous blessé ou avez-vous blessé quelqu'un parce que vous aviez bu ?", [
             [0, "Non"],
-            [2, "Oui mais pas dans l'année passée"],
-            [4, "Oui au cours de l’année dernière"]
+            [2, "Oui mais pas dans les 12 derniers mois"],
+            [4, "Oui au cours des 12 derniers mois"]
         ])
 
         form.enumRadio("audit10", "Est-ce qu'un parent, un ami, un médecin ou un autre professionnel de santé s'est déjà préoccupé de votre consommation d'alcool et vous a conseillé de la diminuer ?", [
             [0, "Non"],
-            [2, "Oui mais pas dans l'année passée"],
-            [4, "Oui au cours de l’année dernière"]
+            [2, "Oui mais pas dans les 12 derniers mois"],
+            [4, "Oui au cours des 12 derniers mois"]
         ])
     })
 
-    form.part("Autres substances", () => {
-        form.binary("drogues", "Consommez-vous des drogues ?")
+    form.intro = html`
+        <p>Indiquez désormais si vous consommez d'<b>autres substances</b>.
+    `
+
+    form.part(() => {
+        form.binary("drogues1", "Êtes-vous consommateur ou consommatrice d'autres substances ?", {
+            help: "Exemples : cannabis, champignons hallucinogènes, héroïne, crack, cocaïne, LSD, MDMA, ou autres substances apparentées"
+        })
+
+        if (values.drogues1) {
+            form.binary("drogues2", "Était-ce déjà le cas avant l’évènement ?")
+            form.number("drogues3", "Depuis combien de temps consommez-vous ces substances ?", { suffix: value => value > 1 ? "ans" : "an" })
+            form.binary("drogues4", "Considérez-vous que votre consommation ait augmenté suite à l’évènement ?")
+        }
     })
 
-    if (values.drogues !== 0) {
-        form.part(() => {
-            // form.textArea("drogues_noms", "Quelles drogues consommez-vous ?", { wide: true })
-            form.enumRadio("drogues_likert", "A quelle fréquence ?", [
-                [0, "Jamais"],
-                [1, "De temps en temps"],
-                [2, "Environ 1 fois par semaine"],
-                [3, "3 à 4 fois par semaine"],
-                [4, "Tous les jours ou presque"],
-            ])
-        })
-    }
+    form.part(() => {
+        form.enumButtons("drogues5", "Vous arrive-t-il de prendre plus de comprimés ou de doses d’un médicament que ce qui est indiqué sur votre ordonnance ?", [
+            [1, "Oui"],
+            [0, "Non"],
+            [99, "Non applicable"]
+        ], { help: "Exemples : psychotropes, antidouleurs, anxiolytiques, ou autres substances apparentées" })
+    })
 }
 
 export default build
