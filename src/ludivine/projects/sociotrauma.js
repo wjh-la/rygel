@@ -19,7 +19,8 @@ import { ASSETS } from '../assets/assets.js';
 import adnm20 from './forms/adnm20.js';
 import cses from './forms/cses.js';
 import ctqsf from './forms/ctqsf.js';
-import evenement from './forms/evenement.js';
+import evenement0 from './forms/evenement0.js';
+import evenement6 from './forms/evenement6.js';
 import gad7 from './forms/gad7.js';
 import isi from './forms/isi.js';
 import isrc from './forms/isrc.js';
@@ -27,6 +28,7 @@ import lec5 from './forms/lec5.js';
 import mhqol from './forms/mhqol.js';
 import pcl5 from './forms/pcl5.js';
 import pdeq from './forms/pdeq.js';
+import pensees6 from './forms/pensees6.js';
 import phq9 from './forms/phq9.js';
 import positif from './forms/positif.js';
 import sociodemo from './forms/sociodemo.js';
@@ -149,7 +151,7 @@ function init(build, start, values) {
                     <p>N'hésitez pas à interrompre l'application ou à cliquer sur le <b>bouton « SOS »</b> si cela s’avère nécessaire pour vous. Vous pouvez également arrêter à tout moment et revenir plus tard.
                 `
 
-                build.form('evenement', 'L’évènement qui vous a amené ici', evenement, options)
+                build.form('evenement', 'L’évènement qui vous a amené ici', evenement0, options)
                 build.form('pensees', 'Pensées et ressentis', (form, values) => {
                     if (values.pdeq == null)
                         values.pdeq = {}
@@ -190,24 +192,31 @@ function init(build, start, values) {
         build.module('s6', '6 semaines', mod => {
             mod.level = 'Module';
             mod.help = html`
-                <p>Nous vous conseillons de répondre aux différents questionnaires <b>dans l’ordre</b> ci-dessus.
-                <p>Commencez par votre <b>entourage</b> puis abordez le module sur les <b>évènements</b>.
+                <p>Nous vous remercions d'avoir rempli le premier questionnaire. Pour compléter notre étude, nous avons besoin que vous répondiez à un <b>deuxième questionnaire</b> sur ce que vous avez ressenti suite à l'événement qui vous a amené ici.
+                <p>Vous remarquerez peut-être que certaines questions <b>semblent se répéter</b>. C'est normal et voulu ! Chaque question a son importance pour nous permettre d'analyser correctement les résultats.
+                <p>Nous vous sommes très reconnaissants pour votre temps et votre patience. Vos <b>réponses sont précieuses</b> pour notre recherche !
+            `;
+            mod.step = html`
+                <p>Bienvenue dans ce <b>premier suivi</b> de socio-trauma !
+                <p>À tout moment, vous pouvez arrêter l'étude ou la mettre en pause et y revenir plus tard. Vous avez également la possibilité de consulter les pages « Ressources » ou « Se détendre ».
             `;
 
             let options = { schedule: debut.plus(6 * 7) };
+
+            build.module('evenement', 'Évènement', () => {
+                build.form('evenement6', 'L’évènement qui vous a amené ici', (form, values) => evenement6(form, values, start), options)
+
+                build.form('pcl5', 'Problèmes liés à l\'évènement', pcl5, options)
+                build.form('adnm20', 'Évènements de vie', adnm20, options)
+                build.form('ctqsf', 'Enfance', ctqsf, options)
+                build.form('ptci', 'Pensées suite à l\'évènement', ptci, options)
+            });
 
             build.module('entourage', 'Entourage', () => {
                 build.form('ssq6', 'Soutien social', ssq6, options)
                 build.form('sni', 'Interactions sociales', sni, options)
                 build.form('sps10', 'Disponibilité de votre entourage', sps10, options)
                 build.network('network', 'Sociogramme', options)
-            });
-
-            build.module('evenement', 'Évènement', () => {
-                build.form('pcl5', 'Problèmes liés à l\'évènement', pcl5, options)
-                build.form('adnm20', 'Évènements de vie', adnm20, options)
-                build.form('ctqsf', 'Enfance', ctqsf, options)
-                build.form('ptci', 'Pensées suite à l\'évènement', ptci, options)
             });
 
             build.module('sante', 'Santé mentale', () => {
